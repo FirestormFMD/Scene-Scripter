@@ -1,0 +1,37 @@
+# Developer tool: decompiles Minecraft and prints the parts listed in tools/inspect/queries.txt to the job log.
+# Runs only when that file changes.
+
+name: inspect-sources
+on:
+  push:
+    paths:
+      - 'tools/inspect/queries.txt'
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'microsoft'
+      - name: restore decompiled sources
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: mcsrc
+          key: mcsrc-${{ hashFiles('gradle.properties') }}
+      - name: decompile minecraft
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :fabric:genSources --no-configuration-cache
+          mkdir -p mcsrc
+          for jar in $(find ~/.gradle fabric/.gradle .gradle -name '*minecraft*sources*.jar' 2>/dev/null); do
+            echo "unpacking $jar"
+            unzip -o -q "$jar" -d mcsrc
+          done
+          find mcsrc -name '*.java' | wc -l
+      - name: run queries
+        run: bash tools/inspect/inspect.sh mcsrc/net/minecraft tools/inspect/queries.txt
