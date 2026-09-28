@@ -1,0 +1,17 @@
+pluginManagement {
+	repositories {
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+rootProject.name = 'scene-scripter'
+
+// Minecraft-free logic (scene model, splines, locomotion, journal). Builds and tests without Minecraft.
+include 'core'
+// The Fabric mod itself. Depends on core.
+include 'fabric'
