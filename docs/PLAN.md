@@ -16,6 +16,7 @@ It is **not** a recorder or a camera tool. Scenes play back live in the world, a
 | Mod loader | Fabric | Flashback and Axiom are Fabric-only and both use Dear ImGui, the UI approach this editor will use. Replay Mod's current builds are Fabric. |
 | Minecraft version | 26.2 first. Port to 26.3 once Flashback and Replay Mod support it. | 26.2 is the newest version both recorders support today. |
 | Multiplayer | Singleplayer first, with a client/server split from day one so dedicated servers and shared editing can be added later without a rewrite. | Keeps v1 focused without closing the door. |
+| Objects outside the editor | Objects stay visible when the editor is closed, frozen at the playhead's state. They have no collision and don't interact with anything that wasn't set up in the editor (see 5.4). | Chosen during planning. The scene stays on screen as set dressing but can't be disturbed. |
 | Added to scope | Performance capture (act a part out live and record it as keyframes). | Chosen during planning. |
 | Out of scope for v1 | Per-limb posing, built-in camera tracks, modded mobs as objects, NeoForge. | Chosen during planning. Can be revisited after 1.0. |
 
@@ -117,10 +118,20 @@ Each object spawns as its real entity type, so a zombie object is a `minecraft:z
 - No AI, goals, pathfinding or targeting. No physics or gravity, and no pushing by entities, water or pistons.
 - Immune to real damage. The `health` channel drives hurt and death instead.
 - No despawning, aging (babies stay babies), breeding, item pickup, burning in sunlight, drowning, freeze damage, or conversions (zombie to drowned, villager to witch, pig to zombified piglin, piglin zombification and so on).
-- Real mobs outside the scene can't target actors.
-- Actors don't trigger pressure plates, tripwires or turtle eggs. This is a setting and defaults to off.
-- Actors pass through each other. The editor warns when two actors overlap.
 - Ambient sounds are a channel: on by default, off to keep a shot quiet.
+
+**No collisions and no outside interaction.** Actors only interact with things set up in the editor. This holds whether or not the editor is open:
+
+- Players and mobs walk straight through actors. Actors don't push anything and can't be pushed, and actors pass through each other. The editor warns when two actors overlap.
+- Players can't hit, shoot or right-click actors, even in creative mode. That means no trading, riding, leashing, shearing or name-tagging. The crosshair doesn't target them.
+- Real mobs don't see or target actors.
+- Projectiles, explosions, lightning, potions, fire and fluids that aren't part of the scene pass through actors or have no effect on them.
+- Actors don't trigger pressure plates, tripwires, turtle eggs or any other block. Block interactions happen only through scene events.
+- Everything an actor does to the world or to other actors comes from scene events resolved by the solver (6.5).
+- The editor can still select actors, because it picks them with its own raycast instead of vanilla targeting.
+- Implementation: the server holds the actor flag. The client also needs it so the local player isn't pushed and the crosshair skips actors, so actor entity IDs are synced to modded clients with a small payload. Recordings don't depend on this payload because collisions don't matter during replay playback.
+
+**Visible when the editor is closed.** Closing the editor leaves every object in the world, frozen at the playhead's state, with the no-collision rules above still in force. The scene stays on screen as untouchable set dressing until it is played, reset, or unloaded.
 - Actors are **never saved to disk.** They are recreated from the scene when the world loads, so opening the world without the mod leaves no stray entities.
 - Movement sets exact positions from the timeline. Walking animations come from vanilla on the client, which animates legs from how far the entity moved. The mod sends step sounds, sprint particles and landing effects itself, based on distance traveled and the block underfoot, so they end up in recordings.
 - The tracking range for actors is raised to a per-scene setting so distant fighters still reach the client and the recorder.
@@ -153,7 +164,7 @@ Some vanilla visuals are computed on the client from motion or timers and are ne
 
 ### 6.1 The editor
 
-- **Toggle:** Right Ctrl, rebindable in Controls. Opening the editor frees the mouse and shows the panels over the live world. Closing it returns to normal play and keeps the playhead where it was.
+- **Toggle:** Right Ctrl, rebindable in Controls. Opening the editor frees the mouse and shows the panels over the live world. Closing it returns to normal play and keeps the playhead where it was. Objects stay visible but can't be touched (5.4).
 - **While editing:** the player flies, can't be hurt, and gameplay input is blocked.
 - **UI:** Dear ImGui through imgui-java, with a docking layout similar to Axiom.
 - **Camera:** hold the right mouse button to fly (WASD, Space and Shift for up and down, scroll for speed). Press F to frame the selection.
@@ -467,8 +478,8 @@ Each phase ends with something usable and has a concrete exit test.
 - Scene model, saving and loading, the edit-op protocol, and undo/redo.
 - Place objects (every vanilla mob, Mannequins, TNT), with the outliner and inspector.
 - Channels and keyframes for position, rotation, bools, enums and equipment, with all interpolation modes.
-- Timeline with dope sheet, playback and scrubbing, and full actor autonomy suppression.
-- **Exit:** a scene of posed, keyframed mobs plays, scrubs, saves and reloads, and leaves nothing behind after the world is closed.
+- Timeline with dope sheet, playback and scrubbing, full actor autonomy suppression, and the no-collision rules.
+- **Exit:** a scene of posed, keyframed mobs plays, scrubs, saves and reloads. With the editor closed, the mobs stay visible and a player can walk through them, hit at them and shoot at them without affecting them. Nothing is left behind after the world is closed.
 
 ### Phase 2: Motion paths
 
@@ -540,11 +551,12 @@ These are the defaults the plan assumes. Say if any should change.
 
 1. **Explosion block damage.** Blocks really break and are restored on rewind. Should there also be a visual-only option that leaves blocks alone?
 2. **Item drops** from explosions and deaths are off by default. Do you want them, as baked item objects?
-3. **Visibility when idle.** When the editor is closed and nothing is playing, should objects stay in the world at the playhead's state, or disappear until the scene is played?
-4. **Building mid-scene.** Manual building is allowed only at the scene's base state (5.6). Is that workable, or do you need to build while the scene is partway through?
-5. **Skins.** Is username plus local PNG enough, or do you need other sources, such as a URL or MineSkin?
-6. **Scale.** Is 200 actors the right target, or are you aiming larger (500+)?
-7. **Apply to world.** Should this exist at all, or should scenes never be able to change the world permanently?
+3. **Building mid-scene.** Manual building is allowed only at the scene's base state (5.6). Is that workable, or do you need to build while the scene is partway through?
+4. **Skins.** Is username plus local PNG enough, or do you need other sources, such as a URL or MineSkin?
+5. **Scale.** Is 200 actors the right target, or are you aiming larger (500+)?
+6. **Apply to world.** Should this exist at all, or should scenes never be able to change the world permanently?
+
+Resolved: objects stay visible when the editor is closed, with no collisions and no outside interaction (see 1 and 5.4).
 
 ## References
 
