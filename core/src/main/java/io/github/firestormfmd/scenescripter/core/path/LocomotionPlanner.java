@@ -173,6 +173,24 @@ public final class LocomotionPlanner {
 			yaw = turn(yaw, s, moving);
 			samples.add(new MotionSample(new Vec3(pos.x(), y, pos.z()), yaw, !airborne, moving, swimming, gait));
 		}
+
+		// A clip that ends mid-jump or mid-fall keeps falling in place until it lands, rather than hanging in the air.
+		Vec3 end = samples.getLast().pos();
+		double endGround = groundY(ticks + 1, y);
+		for (int extra = 1; airborne && extra <= MAX_AIR_TICKS; extra++) {
+			double ny = y + vy;
+			vy = JumpPhysics.nextVelocity(vy);
+			peakY = Math.max(peakY, ny);
+			int tick = clip.startTick() + ticks + extra;
+			if (ny <= endGround) {
+				landings.add(new Locomotion.Landing(tick, Math.max(0, peakY - endGround)));
+				airborne = false;
+				y = endGround;
+			} else {
+				y = ny;
+			}
+			samples.add(new MotionSample(new Vec3(end.x(), y, end.z()), yaw, !airborne, false, false, gait));
+		}
 		return new Locomotion(clip.startTick(), samples, issues, jumps, landings);
 	}
 

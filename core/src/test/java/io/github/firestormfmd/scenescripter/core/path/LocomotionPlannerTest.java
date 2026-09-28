@@ -236,6 +236,17 @@ class LocomotionPlannerTest {
 	}
 
 	@Test
+	void clipEndingMidAirLandsInsteadOfHanging() {
+		MotionPath path = straight(0.5, 5.5);
+		path.setMarkers(List.of(PathMarker.jump(1.0)));
+		Locomotion loco = plan(path, VoxelTerrain.floor());
+		assertEquals(1, loco.jumpTicks().size());
+		assertTrue(loco.samples().getLast().onGround());
+		assertEquals(64.0, loco.samples().getLast().pos().y(), 1e-9);
+		assertEquals(5.5, loco.samples().getLast().pos().x(), 1e-6);
+	}
+
+	@Test
 	void planningIsDeterministic() {
 		VoxelTerrain t = VoxelTerrain.floor().fill(5, 64, -2, 20, 64, 2, Block.STONE);
 		assertEquals(plan(straight(0.5, 10.5), t), plan(straight(0.5, 10.5), t));

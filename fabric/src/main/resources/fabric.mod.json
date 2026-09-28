@@ -1,0 +1,29 @@
+{
+	"schemaVersion": 1,
+	"id": "scenescripter",
+	"version": "${version}",
+	"name": "Scene Scripter",
+	"description": "Stage and animate Minecraft cinematics in-game: keyframed mobs and players, motion paths, fights and explosions on a timeline.",
+	"authors": [
+		"FirestormFMD"
+	],
+	"contact": {
+		"sources": "https://github.com/FirestormFMD/Scene-Scripter"
+	},
+	"license": "MIT",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"io.github.firestormfmd.scenescripter.SceneScripter"
+		],
+		"client": [
+			"io.github.firestormfmd.scenescripter.client.SceneScripterClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
