@@ -8,8 +8,8 @@ See [docs/PLAN.md](docs/PLAN.md) for the full design and roadmap.
 
 All six phases of the [plan](docs/PLAN.md) are implemented; section 1b of the plan lists what is built, how it is tested and what is still open (mainly manual recording checks with Flashback and Replay Mod).
 
-- **Editor:** Right Ctrl opens a vanilla-GUI editor with an outliner, inspector, timeline with a curve editor, and tools for placing objects, drawing paths and editing blocks.
-- **Objects:** any vanilla mob, Mannequins as players, TNT, creepers, end crystals and projectiles, driven by keyframed channels and never by their own AI.
+- **Editor:** Right Ctrl opens a vanilla-GUI editor with an outliner, inspector, timeline with a curve editor, move and turn handles, and tools for placing objects, drawing or sketching paths and editing blocks. F1 lists every shortcut.
+- **Objects:** any vanilla mob with its own looks, poses and animations (charged creepers, rearing horses, a golem offering a flower), Mannequins as players, TNT, props such as displays and falling blocks, and projectiles, driven by keyframed channels and never by their own AI.
 - **Motion paths** that snap to the ground and walk, sprint, sneak, jump and fall with vanilla physics.
 - **Fights, explosions and block changes** resolved ahead of time by the solver, and fully rewindable.
 - **Performance capture:** act a part out and keep it as keyframes or a motion path; loop capture builds crowds.

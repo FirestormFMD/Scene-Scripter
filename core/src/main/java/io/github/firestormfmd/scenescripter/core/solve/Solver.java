@@ -176,16 +176,28 @@ public final class Solver {
 		InteractionRules fromEvent = InteractionRules.INHERIT;
 		Object mode = event == null ? null : event.params().get("mode");
 		if (mode instanceof String s) {
-			fromEvent = fromEvent.withAttack(AttackMode.byId(s));
+			try {
+				fromEvent = fromEvent.withAttack(AttackMode.byId(s));
+			} catch (IllegalArgumentException ignored) {
+				// a mistyped mode falls back to the object's and scene's rules
+			}
 		}
 		Map<String, Object> p = event == null ? Map.of() : event.params();
 		ExplosionRules blast = new ExplosionRules(bool(p, "breakBlocks"), bool(p, "damageObjects"), null, null,
 				bool(p, "fire"));
 		InteractionRules r = new InteractionRules(fromEvent.attack(),
 				p.get("knockback") instanceof Number n ? n.doubleValue() : null,
-				p.get("crit") instanceof String c ? CritMode.byId(c) : null,
+				p.get("crit") instanceof String c ? critMode(c) : null,
 				null, null, null, blast);
 		return r.withFallback(owner.rules()).withFallback(scene.settings().rules()).withFallback(InteractionRules.DEFAULTS);
+	}
+
+	private static CritMode critMode(String id) {
+		try {
+			return CritMode.byId(id);
+		} catch (IllegalArgumentException e) {
+			return null;
+		}
 	}
 
 	private AttackResult attack(SceneObject attacker, SceneEvent event, InteractionRules rules) {

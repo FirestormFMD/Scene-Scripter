@@ -768,6 +768,14 @@ final class Inspector {
 		String what = (e.type().equals("mob_event") ? String.valueOf(e.params().get("event")) : e.type()) + " @" + e.tick()
 				+ (e.target() != null ? " > " + e.target() : "");
 		ui.text(ui.fit(what, w - 90), x + 6, rowY + 2, e.isGenerated() ? 0xFFB06CFF : Ui.TEXT_DIM);
+		if (!e.isGenerated()) {
+			// Clicking the description edits the event's own settings, which override the object's and scene's rules.
+			int ey = rowY;
+			ui.area(x + 6, rowY, w - 90, 11, (b, mx, my) -> screen.editText(x + 6, ey, w - 12, eventSettings(e),
+					v -> ClientNet.edit(new Edits.Composite("Change event settings", List.of(new Edits.RemoveEvent(o.id(), e.id()),
+							new Edits.AddEvent(o.id(), new io.github.firestormfmd.scenescripter.core.scene.SceneEvent(e.id(), e.tick(),
+									e.type(), e.target(), withSettings(e.params(), v), e.generatedBy())))))));
+		}
 		if (e.isGenerated()) {
 			ui.text("auto", x + w - 30, rowY + 2, Ui.TEXT_DIM);
 		} else {
@@ -788,6 +796,57 @@ final class Inspector {
 			ui.button(x + w - 20, rowY, 14, 11, "x", false, () -> ClientNet.edit(new Edits.RemoveEvent(o.id(), e.id())));
 		}
 		rowY += Ui.ROW_HEIGHT + 1;
+	}
+
+	/** An event's plain settings as {@code key=value; key=value}, leaving out its condition and structured values. */
+	private static String eventSettings(io.github.firestormfmd.scenescripter.core.scene.SceneEvent e) {
+		StringBuilder out = new StringBuilder();
+		for (var entry : new java.util.TreeMap<>(e.params()).entrySet()) {
+			Object v = entry.getValue();
+			if (entry.getKey().equals("if") || !(v instanceof String || v instanceof Number || v instanceof Boolean)) {
+				continue;
+			}
+			if (!out.isEmpty()) {
+				out.append("; ");
+			}
+			String text = v instanceof Double d && d == Math.rint(d) && Math.abs(d) < 1e9 ? String.valueOf(d.longValue()) : String.valueOf(v);
+			out.append(entry.getKey()).append('=').append(text);
+		}
+		return out.isEmpty() ? "damage=4; knockback=0.5; crit=always" : out.toString();
+	}
+
+	/**
+	 * The event's settings with the edited ones applied: numbers and true/false are stored as such, an empty value
+	 * removes a setting, and structured values such as block positions are kept as they were.
+	 */
+	private static java.util.Map<String, Object> withSettings(java.util.Map<String, Object> params, String text) {
+		java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
+		params.forEach((k, v) -> {
+			if (k.equals("if") || !(v instanceof String || v instanceof Number || v instanceof Boolean)) {
+				out.put(k, v);
+			}
+		});
+		for (String part : text.split(";")) {
+			int eq = part.indexOf('=');
+			if (eq <= 0) {
+				continue;
+			}
+			String key = part.substring(0, eq).trim();
+			String value = part.substring(eq + 1).trim();
+			if (key.equals("if") || value.isEmpty()) {
+				continue;
+			}
+			if (value.equals("true") || value.equals("false")) {
+				out.put(key, Boolean.parseBoolean(value));
+			} else {
+				try {
+					out.put(key, Double.parseDouble(value));
+				} catch (NumberFormatException ex) {
+					out.put(key, value);
+				}
+			}
+		}
+		return out;
 	}
 
 	/** Custom variables: numbers and switches of the user's own, usable in event conditions. */
