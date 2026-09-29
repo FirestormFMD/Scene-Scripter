@@ -28,6 +28,10 @@ public final class EditorState {
 	public static @Nullable String hoveredObject;
 	public static Tool tool = Tool.SELECT;
 	public static BlockAction blockAction = BlockAction.BREAK;
+	public static io.github.firestormfmd.scenescripter.core.crowd.Formation crowdFormation =
+			io.github.firestormfmd.scenescripter.core.crowd.Formation.GRID;
+	public static int crowdCount = 8;
+	public static double crowdSpacing = 1.5;
 	/** Ticks the scene plays before a capture starts recording. */
 	public static int capturePreroll = 60;
 	/** Block state the block tool places, in command syntax. */

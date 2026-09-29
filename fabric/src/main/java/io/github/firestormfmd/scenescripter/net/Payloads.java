@@ -108,6 +108,9 @@ public final class Payloads {
 		public static final int APPLY = 6;
 		/** Fits the scene bounds around everything in the scene. */
 		public static final int FIT_BOUNDS = 7;
+		/** Plays from the start for a recorder, holding the first frame for {@code length} ticks. */
+		public static final int RECORD = 8;
+		public static final int RESET = 9;
 
 		public static final Type<SceneCommand> TYPE = payloadType("scene_command");
 		public static final StreamCodec<FriendlyByteBuf, SceneCommand> CODEC = StreamCodec.of(

@@ -21,7 +21,9 @@ public final class EventWindow {
 	/** Events with {@code fromExclusive < tick <= toInclusive}, in tick order, then outliner order. */
 	public static List<Fired> between(Scene scene, int fromExclusive, int toInclusive) {
 		List<Fired> out = new ArrayList<>();
-		for (SceneObject o : scene.objects()) {
+		List<SceneObject> owners = new ArrayList<>(scene.objects());
+		owners.add(scene.tracks());
+		for (SceneObject o : owners) {
 			for (SceneEvent e : o.events()) {
 				if (e.tick() > fromExclusive && e.tick() <= toInclusive) {
 					out.add(new Fired(o, e));

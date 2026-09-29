@@ -221,7 +221,26 @@ public final class SceneEvaluator {
 				value(o, BuiltInChannels.AMBIENT_SOUNDS, tick),
 				value(o, BuiltInChannels.SILENT, tick),
 				vehicle,
+				value(o, BuiltInChannels.USE_ITEM, tick),
 				extra);
+	}
+
+	/**
+	 * The scene track at a tick.
+	 *
+	 * @param timeOfDay time of day to set, or null if the scene does not control it
+	 * @param weather weather to set, or null if the scene does not control it
+	 */
+	public record TrackState(Integer timeOfDay, String weather) {
+	}
+
+	public TrackState tracks(int tick) {
+		SceneObject t = scene.tracks();
+		Integer time = t.channel(BuiltInChannels.TIME_OF_DAY.name()).filter(ch -> !ch.isEmpty())
+				.map(ch -> BuiltInChannels.TIME_OF_DAY.type().cast(ch.valueAt(tick))).orElse(null);
+		String weather = t.channel(BuiltInChannels.WEATHER.name()).filter(ch -> !ch.isEmpty())
+				.map(ch -> BuiltInChannels.WEATHER.type().cast(ch.valueAt(tick))).orElse(null);
+		return new TrackState(time, weather);
 	}
 
 	private Optional<Vec3> lookTarget(String lookAt, int tick, int depth) {

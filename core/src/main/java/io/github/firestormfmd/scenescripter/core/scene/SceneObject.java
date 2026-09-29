@@ -187,6 +187,20 @@ public final class SceneObject {
 		this.rules = Objects.requireNonNull(rules, "rules");
 	}
 
+	/** A deep copy under a new ID and name, such as a member of a crowd. Events keep their contents. */
+	public SceneObject copyAs(String newId, String newName) {
+		SceneObject o = new SceneObject(newId, newName, entityType);
+		o.appearance.putAll(appearance);
+		o.spawnTick = spawnTick;
+		o.despawnTick = despawnTick;
+		o.group = group;
+		o.motion.addAll(motion);
+		channels.forEach((k, v) -> o.channels.put(k, v.copy()));
+		o.events.addAll(events);
+		o.rules = rules;
+		return o;
+	}
+
 	/** Deep copy, so snapshots held by undo history are not changed by later edits. */
 	public SceneObject copy() {
 		SceneObject o = new SceneObject(id, name, entityType);

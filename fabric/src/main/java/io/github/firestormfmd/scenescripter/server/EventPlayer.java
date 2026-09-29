@@ -164,6 +164,11 @@ public final class EventPlayer {
 			playSound(x.doubleValue(), y.doubleValue(), z.doubleValue(), id, SoundSource.MASTER, volume, pitch);
 		} else if (actor != null) {
 			playSound(actor.getX(), actor.getY(), actor.getZ(), id, SoundSource.NEUTRAL, volume, pitch);
+		} else {
+			// A scene-wide sound, such as music or thunder, is heard by everyone where they stand.
+			for (var player : session.level().players()) {
+				playSound(player.getX(), player.getY(), player.getZ(), id, SoundSource.MASTER, volume, pitch);
+			}
 		}
 	}
 

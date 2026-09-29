@@ -215,6 +215,12 @@ public final class EditorScreen extends Screen {
 				status("Scene bounds fitted around everything; their chunks stay loaded");
 			});
 			x += 46;
+			ui.button(x, 3, 46, 14, "Record", false, () -> {
+				// Closing the editor hides every overlay, so the recorder sees only the scene.
+				ClientNet.sceneCommand(Payloads.SceneCommand.RECORD, "", 40);
+				EditorMode.close();
+			});
+			x += 48;
 			ui.button(x, 3, 40, 14, confirmApply ? "Sure?" : "Apply", confirmApply, () -> {
 				if (confirmApply) {
 					ClientNet.sceneCommand(Payloads.SceneCommand.APPLY, "", 0);

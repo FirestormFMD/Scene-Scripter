@@ -102,6 +102,38 @@ public final class SceneCommands {
 					Path out = SceneManager.get().orElseThrow().storage().export(s.name(), s.scene());
 					return "Exported to " + out;
 				})))
+				.then(literal("record")
+						.executes(ctx -> withSession(ctx, s -> {
+							s.playForRecording(40);
+							return "Playing for recording after a 2s hold";
+						}))
+						.then(argument("preroll", IntegerArgumentType.integer(0, 20 * 60))
+								.executes(ctx -> withSession(ctx, s -> {
+									s.playForRecording(IntegerArgumentType.getInteger(ctx, "preroll"));
+									return "Playing for recording";
+								}))))
+				.then(literal("reset").executes(ctx -> withSession(ctx, s -> {
+					s.reset();
+					return "Back to the start; the world is as it was before the scene";
+				})))
+				.then(literal("run")
+						.then(argument("name", StringArgumentType.word()).suggests(SCENES)
+								.executes(ctx -> run(ctx, m -> {
+									String name = StringArgumentType.getString(ctx, "name");
+									if (m.session().map(s -> !s.name().equals(name)).orElse(true)) {
+										m.open(name, ctx.getSource().getLevel());
+									}
+									m.session().orElseThrow().playForRecording(40);
+									return "Playing " + name;
+								}))))
+				.then(literal("import")
+						.then(argument("file", StringArgumentType.string())
+								.executes(ctx -> run(ctx, m -> "Imported " + m.importScene(StringArgumentType.getString(ctx, "file"),
+										ctx.getSource().getLevel(), null).name()))
+								.then(literal("here").executes(ctx -> run(ctx, m -> "Imported " + m.importScene(
+										StringArgumentType.getString(ctx, "file"), ctx.getSource().getLevel(),
+										net.minecraft.core.BlockPos.containing(ctx.getSource().getPosition())).name()
+										+ " with its origin here")))))
 				.then(literal("capture")
 						.then(literal("stop").executes(ctx -> run(ctx, m -> {
 							m.stopCapture(player(ctx));

@@ -126,4 +126,40 @@ public class BlastGameTests {
 		session.close();
 		helper.succeed();
 	}
+
+	@GameTest(maxTicks = 60)
+	public void sceneTracksDriveTimeWeatherAndCommands(GameTestHelper helper) {
+		Scene scene = new Scene("t", 200);
+		SceneObject track = scene.tracks();
+		track.channel(io.github.firestormfmd.scenescripter.core.scene.BuiltInChannels.TIME_OF_DAY)
+				.put(io.github.firestormfmd.scenescripter.core.anim.Keyframe.of(0, 13000,
+						io.github.firestormfmd.scenescripter.core.anim.Interpolation.STEP));
+		track.channel(io.github.firestormfmd.scenescripter.core.scene.BuiltInChannels.WEATHER)
+				.put(io.github.firestormfmd.scenescripter.core.anim.Keyframe.of(0, "thunder",
+						io.github.firestormfmd.scenescripter.core.anim.Interpolation.STEP));
+		BlockPos mark = helper.absolutePos(new BlockPos(1, 1, 1));
+		String at = mark.getX() + " " + mark.getY() + " " + mark.getZ();
+		track.addEvent(new SceneEvent("c1", 3, "command", null,
+				Map.of("command", "setblock " + at + " minecraft:gold_block", "undo", "setblock " + at + " minecraft:air"), null));
+		boolean wasThundering = helper.getLevel().getServer().getWeatherData().isThundering();
+
+		SceneSession session = TestScenes.session(helper, scene);
+		session.tick();
+		session.play();
+		for (int i = 0; i < 6; i++) {
+			session.tick();
+		}
+		helper.assertBlockPresent(Blocks.GOLD_BLOCK, new BlockPos(1, 1, 1));
+		helper.assertTrue(helper.getLevel().getServer().getWeatherData().isThundering(), "the scene makes it thunder");
+		long total = helper.getLevel().dimensionType().defaultClock()
+				.map(c -> helper.getLevel().clockManager().getTotalTicks(c)).orElse(-1L);
+		helper.assertTrue(Math.floorMod(total, 24000L) == 13000L, "the scene sets the time of day: " + total);
+
+		session.seek(0);
+		helper.assertBlockPresent(Blocks.AIR, new BlockPos(1, 1, 1));
+		session.close();
+		helper.assertTrue(helper.getLevel().getServer().getWeatherData().isThundering() == wasThundering,
+				"closing the scene restores the weather");
+		helper.succeed();
+	}
 }

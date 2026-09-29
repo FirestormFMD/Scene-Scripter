@@ -41,6 +41,9 @@ public final class SceneSession {
 			TicketType.FLAG_LOADING | TicketType.FLAG_SIMULATION | TicketType.FLAG_KEEP_DIMENSION_ACTIVE);
 	private final List<ChunkPos> loadedChunks = new java.util.ArrayList<>();
 	private final List<io.github.firestormfmd.scenescripter.core.capture.Take> takes = new java.util.ArrayList<>();
+	private final WorldTracks tracks;
+	/** Ticks left to hold the first frame before playing, so recorders see every actor before anything moves. */
+	private int holdTicks;
 	private boolean takesChanged;
 	private long appliedRevision = -1;
 	private long savedRevision;
@@ -59,6 +62,7 @@ public final class SceneSession {
 		this.actors = new ActorController(level);
 		this.events = new EventPlayer(this);
 		this.solver = new Solver(new WorldCombat(level, false));
+		this.tracks = new WorldTracks(level);
 		this.savedRevision = history.revision();
 		Actors.setTrackingRange(scene.settings().trackingRange());
 	}
@@ -190,7 +194,13 @@ public final class SceneSession {
 
 	/** One server tick: advance the playhead if playing, and refresh after edits. */
 	public void tick() {
-		Optional<PlaybackClock.Step> step = clock.advance();
+		Optional<PlaybackClock.Step> step;
+		if (holdTicks > 0) {
+			holdTicks--;
+			step = Optional.empty();
+		} else {
+			step = clock.advance();
+		}
 		if (history.revision() != appliedRevision) {
 			refreshAfterEdit();
 		}
@@ -304,11 +314,41 @@ public final class SceneSession {
 	private void applyStep(PlaybackClock.Step step) {
 		journal.seek(step.to(), blocks);
 		actorListChanged |= actors.update(evaluator, step.to(), !step.contiguous());
+		tracks.apply(evaluator.tracks(step.to()));
+		if (step.to() < step.from()) {
+			tracks.rewindTo(step.to());
+		}
 		if (step.contiguous()) {
 			for (EventWindow.Fired fired : EventWindow.between(scene, step.from(), step.to())) {
-				events.fire(fired.owner(), fired.event());
+				if (fired.event().type().equals("command")) {
+					tracks.runCommand(fired.event());
+				} else {
+					events.fire(fired.owner(), fired.event());
+				}
 			}
 		}
+	}
+
+	/**
+	 * Plays from the start at normal speed for a recorder: the first frame is held for {@code preroll} ticks with
+	 * every actor in place, so the recording starts with the whole cast.
+	 */
+	public void playForRecording(int preroll) {
+		clock.pause();
+		clock.setSpeed(1);
+		int start = clock.loopStart() >= 0 ? clock.loopStart() : 0;
+		applyStep(clock.seek(start));
+		holdTicks = Math.max(0, preroll);
+		clock.play();
+		stateChanged = true;
+	}
+
+	/** Back to the start, paused, with the world as it was before the scene's first change. */
+	public void reset() {
+		holdTicks = 0;
+		clock.pause();
+		applyStep(clock.seek(0));
+		stateChanged = true;
 	}
 
 	/** Block changes the scene makes, from explosions and block events. */
@@ -361,6 +401,7 @@ public final class SceneSession {
 		clock.pause();
 		actors.removeAll();
 		journal.revertAll(blocks);
+		tracks.restore();
 		releaseChunks();
 	}
 }

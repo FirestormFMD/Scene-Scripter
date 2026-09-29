@@ -52,12 +52,22 @@ public final class BuiltInChannels {
 	/** Creeper swelling towards an explosion; keyed by ignite events. */
 	public static final ChannelSpec<Boolean> IGNITED = new ChannelSpec<>("ignited", ValueType.BOOL, false);
 
+	/** Item use in progress (bow draw, eating, shield): {@code main}, {@code off}, or empty for none. */
+	public static final ChannelSpec<String> USE_ITEM = new ChannelSpec<>("use_item", ValueType.TEXT, "");
+
+	// ---- Scene track channels ----
+
+	/** Time of day in ticks, 0 to 24000 (6000 is noon). Only applied once keyed. */
+	public static final ChannelSpec<Integer> TIME_OF_DAY = new ChannelSpec<>("time_of_day", ValueType.INT, 6000);
+	/** {@code clear}, {@code rain} or {@code thunder}. Only applied once keyed. */
+	public static final ChannelSpec<String> WEATHER = new ChannelSpec<>("weather", ValueType.ENUM, "clear");
+
 	private static final Map<String, ChannelSpec<?>> BY_NAME = new LinkedHashMap<>();
 
 	static {
 		for (ChannelSpec<?> spec : new ChannelSpec<?>[] {POSITION, OFFSET, BODY_YAW, HEAD_YAW, HEAD_PITCH, LOOK_AT, HEALTH, DEAD,
 				POSE, SNEAKING, SPRINTING, ON_FIRE, GLOWING, INVISIBLE, SCALE, CUSTOM_NAME, NAME_VISIBLE, MAINHAND,
-				OFFHAND, HEAD, CHEST, LEGS, FEET, AMBIENT_SOUNDS, SILENT, REMOVED, VEHICLE, IGNITED}) {
+				OFFHAND, HEAD, CHEST, LEGS, FEET, AMBIENT_SOUNDS, SILENT, REMOVED, VEHICLE, IGNITED, USE_ITEM, TIME_OF_DAY, WEATHER}) {
 			BY_NAME.put(spec.name(), spec);
 		}
 	}

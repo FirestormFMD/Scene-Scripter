@@ -26,6 +26,14 @@ final class Outliner {
 		});
 		int rowY = y + 18;
 		int bottom = y + h - 70;
+		boolean trackSelected = Scene.TRACKS_ID.equals(EditorState.selectedObject);
+		if (trackSelected) {
+			ui.fill(x + 2, rowY - 1, w - 4, Ui.ROW_HEIGHT, Ui.ACCENT_DIM);
+		}
+		ui.text("Scene track", x + 6, rowY + 1, Ui.KEY);
+		ui.text("time, sky", x + w - 54, rowY + 1, Ui.TEXT_DIM);
+		ui.area(x + 2, rowY - 1, w - 4, Ui.ROW_HEIGHT, (b, mx, my) -> EditorState.selectObject(Scene.TRACKS_ID));
+		rowY += Ui.ROW_HEIGHT;
 		int index = 0;
 		for (SceneObject o : scene.objects()) {
 			if (index++ < scroll) {

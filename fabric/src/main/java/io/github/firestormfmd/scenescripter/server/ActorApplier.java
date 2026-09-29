@@ -74,6 +74,7 @@ public final class ActorApplier {
 		if (entity instanceof LivingEntity living) {
 			applyLiving(living, state);
 		}
+		io.github.firestormfmd.scenescripter.actor.Capabilities.apply(entity, state.extra());
 	}
 
 	private static void applyLiving(LivingEntity living, ObjectState state) {
@@ -89,6 +90,18 @@ public final class ActorApplier {
 		float health = state.dead() ? 0f : living.getMaxHealth();
 		if (living.getHealth() != health) {
 			living.setHealth(health);
+		}
+
+		// Bow draws, eating and raised shields, from the use_item channel.
+		String use = state.useItem();
+		if (!use.isEmpty() && !state.dead()) {
+			net.minecraft.world.InteractionHand hand = use.equals("off")
+					? net.minecraft.world.InteractionHand.OFF_HAND : net.minecraft.world.InteractionHand.MAIN_HAND;
+			if (!living.isUsingItem() || living.getUsedItemHand() != hand) {
+				living.startUsingItem(hand);
+			}
+		} else if (living.isUsingItem()) {
+			living.stopUsingItem();
 		}
 
 		AttributeInstance scale = living.getAttribute(Attributes.SCALE);

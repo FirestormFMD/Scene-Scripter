@@ -17,6 +17,7 @@ import io.github.firestormfmd.scenescripter.core.scene.Gait;
  * @param equipment item per equipment slot ({@code mainhand}, {@code offhand}, {@code head}, {@code chest},
  *                  {@code legs}, {@code feet}); empty strings mean no item
  * @param vehicle ID of the object this one rides, or empty
+ * @param useItem hand using its item ({@code main} or {@code off}), or empty
  * @param extra values of all other channels: mob-specific ones and custom variables
  */
 public record ObjectState(
@@ -46,6 +47,7 @@ public record ObjectState(
 		boolean ambientSounds,
 		boolean silent,
 		String vehicle,
+		String useItem,
 		Map<String, Object> extra) {
 	public ObjectState {
 		equipment = Map.copyOf(equipment);

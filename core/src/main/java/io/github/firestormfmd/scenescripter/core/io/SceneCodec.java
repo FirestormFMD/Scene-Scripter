@@ -95,6 +95,9 @@ public final class SceneCodec {
 		JsonArray objects = new JsonArray();
 		scene.objects().forEach(obj -> objects.add(object(obj)));
 		o.add("objects", objects);
+		if (!scene.tracks().channels().isEmpty() || !scene.tracks().events().isEmpty()) {
+			o.add("tracks", object(scene.tracks()));
+		}
 		return o;
 	}
 
@@ -379,6 +382,9 @@ public final class SceneCodec {
 		}
 		for (JsonElement obj : array(o, "objects")) {
 			scene.addObject(readObject(obj.getAsJsonObject()));
+		}
+		if (o.has("tracks")) {
+			scene.addObject(readObject(o.getAsJsonObject("tracks")));
 		}
 		return scene;
 	}

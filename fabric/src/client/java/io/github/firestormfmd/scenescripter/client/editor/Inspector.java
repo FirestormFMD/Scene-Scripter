@@ -54,7 +54,9 @@ final class Inspector {
 		bottom = y + h - 4;
 		SceneObject o = ClientScene.object(EditorState.selectedObject).orElse(null);
 		MotionPath p = EditorState.selectedPath == null ? null : scene.path(EditorState.selectedPath).orElse(null);
-		if (o != null) {
+		if (o != null && Scene.isTracks(o)) {
+			tracks(o);
+		} else if (o != null) {
 			object(scene, o);
 		} else if (p != null) {
 			path(scene, p);
@@ -63,6 +65,7 @@ final class Inspector {
 			label("Objects: " + scene.objects().size() + "   Paths: " + scene.paths().size());
 			label("Length: " + scene.length() + " ticks (" + scene.length() / 20 + "s)");
 			label("Select something to edit it.");
+			sceneRules(scene);
 		}
 	}
 
@@ -189,6 +192,65 @@ final class Inspector {
 		for (ChannelSpec<String> slot : EQUIPMENT) {
 			text(o, slot, slot.name().substring("equipment.".length()));
 		}
+		String use = EditActions.valueNow(o, BuiltInChannels.USE_ITEM);
+		row("Using item", use.isEmpty() ? "no" : use + " hand", EditActions.hasKeyNow(o, "use_item"),
+				() -> EditActions.key(o, BuiltInChannels.USE_ITEM, use.isEmpty() ? "main" : use.equals("main") ? "off" : ""),
+				() -> EditActions.key(o, BuiltInChannels.USE_ITEM, use));
+
+		Entity actor = ClientScene.actor(o.id()).orElse(null);
+		if (actor != null) {
+			var caps = io.github.firestormfmd.scenescripter.actor.Capabilities.of(actor);
+			if (!caps.isEmpty()) {
+				heading(EditActions.prettyName(o.entityType()));
+				for (var cap : caps) {
+					capability(o, cap);
+				}
+			}
+		}
+
+		heading("Interactions");
+		String group = o.group() == null ? "" : o.group();
+		int groupY = rowY;
+		row("Group", group.isEmpty() ? "none" : group, false, () -> editAt(groupY, group,
+				v -> EditActions.change(o, "Set group", c -> c.setGroup(v.isBlank() ? null : v.trim()))), null);
+		var rules = o.rules();
+		row("Attacks", rules.attack() == null ? "scene default" : rules.attack().id(), false, () -> EditActions.change(o,
+				"Change attack rule", c -> c.setRules(c.rules().withAttack(nextMode(c.rules().attack())))), null);
+		row("Friendly fire", rules.friendlyFire() == null ? "scene default" : rules.friendlyFire() ? "on" : "off", false,
+				() -> EditActions.change(o, "Change friendly fire", c -> {
+					var r = c.rules();
+					Boolean next = r.friendlyFire() == null ? Boolean.TRUE : r.friendlyFire() ? Boolean.FALSE : null;
+					c.setRules(new io.github.firestormfmd.scenescripter.core.scene.InteractionRules(r.attack(), r.knockback(),
+							r.crits(), r.hitCooldown(), r.autoDeath(), next, r.explosions()));
+				}), null);
+
+		heading("Crowd");
+		row("Formation", EditorState.crowdFormation.id(), false, () -> {
+			var all = io.github.firestormfmd.scenescripter.core.crowd.Formation.values();
+			EditorState.crowdFormation = all[(EditorState.crowdFormation.ordinal() + 1) % all.length];
+		}, null);
+		int countY = rowY;
+		row("Extra members", Integer.toString(EditorState.crowdCount), false, () -> editAt(countY,
+				Integer.toString(EditorState.crowdCount), v -> {
+					try {
+						EditorState.crowdCount = Math.clamp(Integer.parseInt(v.trim()), 1, 200);
+					} catch (NumberFormatException e) {
+						screen.status("A whole number, 1 to 200");
+					}
+				}), null);
+		int spacingY = rowY;
+		row("Spacing", EditorState.crowdSpacing + " blocks", false, () -> editAt(spacingY,
+				Double.toString(EditorState.crowdSpacing), v -> {
+					try {
+						EditorState.crowdSpacing = Math.clamp(Double.parseDouble(v.trim()), 0.5, 16);
+					} catch (NumberFormatException e) {
+						screen.status("Spacing is a number of blocks");
+					}
+				}), null);
+		if (visible()) {
+			screen.ui().button(x + 6, rowY, w - 12, 11, "Make crowd", false, () -> makeCrowd(scene, o));
+		}
+		rowY += 14;
 
 		heading("Motion");
 		for (MotionClip clip : o.motion()) {
@@ -319,6 +381,167 @@ final class Inspector {
 			screen.ui().button(x + 6, rowY, w - 12, 12, "Delete object", false, () -> EditActions.delete(o));
 		}
 		rowY += 16;
+	}
+
+	private static io.github.firestormfmd.scenescripter.core.scene.AttackMode nextMode(
+			io.github.firestormfmd.scenescripter.core.scene.AttackMode mode) {
+		var all = io.github.firestormfmd.scenescripter.core.scene.AttackMode.values();
+		if (mode == null) {
+			return all[0];
+		}
+		return mode.ordinal() + 1 < all.length ? all[mode.ordinal() + 1] : null;
+	}
+
+	/** Copies the object into a crowd laid out in the chosen formation, in one undoable step. */
+	private void makeCrowd(Scene scene, SceneObject o) {
+		java.util.Set<String> taken = new java.util.HashSet<>();
+		java.util.List<String> ids = new java.util.ArrayList<>();
+		for (int n = scene.objects().size() + 1; ids.size() < EditorState.crowdCount; n++) {
+			String id = "o" + n;
+			if (scene.object(id).isEmpty() && scene.findEventOwner(id).isEmpty() && taken.add(id)) {
+				ids.add(id);
+			}
+		}
+		var members = io.github.firestormfmd.scenescripter.core.crowd.CrowdBuilder.build(o, EditorState.crowdFormation,
+				EditorState.crowdCount, EditorState.crowdSpacing, i -> ids.get(i - 1), 4, 6, o.id().hashCode());
+		java.util.List<io.github.firestormfmd.scenescripter.core.edit.EditOp> ops = new java.util.ArrayList<>();
+		int index = scene.indexOfObject(o.id()) + 1;
+		for (var m : members) {
+			ops.add(new Edits.AddObject(m, index++));
+		}
+		ClientNet.edit(new Edits.Composite("Make crowd", ops));
+		screen.status("Added " + members.size() + " crowd members");
+	}
+
+	@SuppressWarnings("unchecked")
+	private void capability(SceneObject o, io.github.firestormfmd.scenescripter.actor.Capabilities.Capability cap) {
+		ChannelSpec<?> spec = cap.spec();
+		Object value = o.channel(spec.name()).map(ch -> (Object) ch.valueAt(ClientScene.tick())).orElse(spec.defaultValue());
+		boolean keyed = EditActions.hasKeyNow(o, spec.name());
+		int ry = rowY;
+		if (spec.type() == io.github.firestormfmd.scenescripter.core.anim.ValueType.BOOL) {
+			boolean b = Boolean.TRUE.equals(value);
+			row(cap.label(), b ? "yes" : "no", keyed, () -> keyCapability(o, spec, !b), () -> keyCapability(o, spec, b));
+		} else if (spec.name().equals("wool_color")) {
+			var colors = io.github.firestormfmd.scenescripter.actor.Capabilities.COLORS;
+			String c = String.valueOf(value);
+			row(cap.label(), c, keyed, () -> keyCapability(o, spec, colors.get((colors.indexOf(c) + 1) % colors.size())),
+					() -> keyCapability(o, spec, c));
+		} else {
+			String t = String.valueOf(value);
+			row(cap.label(), t.isEmpty() ? "-" : t, keyed, () -> editAt(ry, t, v -> keyCapability(o, spec, v.trim())),
+					() -> keyCapability(o, spec, t));
+		}
+	}
+
+	/** Keys a mob-specific channel, creating it on the object the first time. */
+	@SuppressWarnings("unchecked")
+	private static void keyCapability(SceneObject o, ChannelSpec<?> spec, Object value) {
+		int tick = ClientScene.tick();
+		EditActions.change(o, "Key " + spec.name(), c -> ((io.github.firestormfmd.scenescripter.core.anim.Channel<Object>)
+				(io.github.firestormfmd.scenescripter.core.anim.Channel<?>) c.channel(spec)).put(
+				new io.github.firestormfmd.scenescripter.core.anim.Keyframe<>(tick, value,
+						io.github.firestormfmd.scenescripter.core.anim.Interpolation.STEP, null, null)));
+	}
+
+	// ---- Scene track ----
+
+	private void tracks(SceneObject t) {
+		int tick = ClientScene.tick();
+		heading("Scene track");
+		label("Time and weather change the world only once keyed.");
+		int time = EditActions.valueNow(t, BuiltInChannels.TIME_OF_DAY);
+		int timeY = rowY;
+		row("Time of day", time + (time == 6000 ? " (noon)" : time == 18000 ? " (midnight)" : ""),
+				EditActions.hasKeyNow(t, BuiltInChannels.TIME_OF_DAY.name()), () -> editAt(timeY, Integer.toString(time), v -> {
+					try {
+						EditActions.key(t, BuiltInChannels.TIME_OF_DAY, Math.floorMod(Integer.parseInt(v.trim()), 24000));
+					} catch (NumberFormatException e) {
+						screen.status("Time of day is a tick count from 0 to 24000");
+					}
+				}), () -> EditActions.key(t, BuiltInChannels.TIME_OF_DAY, time));
+		String weather = EditActions.valueNow(t, BuiltInChannels.WEATHER);
+		row("Weather", weather, EditActions.hasKeyNow(t, BuiltInChannels.WEATHER.name()), () -> EditActions.key(t,
+				BuiltInChannels.WEATHER, weather.equals("clear") ? "rain" : weather.equals("rain") ? "thunder" : "clear"),
+				() -> EditActions.key(t, BuiltInChannels.WEATHER, weather));
+
+		heading("Add at the playhead");
+		if (visible()) {
+			Ui ui = screen.ui();
+			int bw = (w - 18) / 3;
+			int ay = rowY;
+			ui.button(x + 6, rowY, bw, 11, "Sound", false, () -> screen.editText(x + 6, ay, w - 12,
+					"entity.lightning_bolt.thunder", v -> addTrackEvent(t, tick, "sound", java.util.Map.of("sound", v.trim()))));
+			ui.button(x + 9 + bw, rowY, bw, 11, "Command", false, () -> screen.editText(x + 6, ay, w - 12,
+					"say Action! | say Cut", v -> {
+						String[] parts = v.split("\\|", 2);
+						java.util.Map<String, Object> params = new java.util.HashMap<>();
+						params.put("command", parts[0].trim());
+						if (parts.length > 1 && !parts[1].isBlank()) {
+							params.put("undo", parts[1].trim());
+						}
+						addTrackEvent(t, tick, "command", params);
+					}));
+			ui.button(x + 12 + 2 * bw, rowY, bw, 11, "Marker", false, () -> screen.editText(x + 6, ay, w - 12,
+					"Marker", v -> addTrackEvent(t, tick, "marker", java.util.Map.of("name", v.trim()))));
+		}
+		rowY += 14;
+		label("Command: \"command | undo command\"");
+		for (var e : t.events()) {
+			String desc = e.type() + " @" + e.tick() + ": " + e.params().getOrDefault("sound",
+					e.params().getOrDefault("command", e.params().getOrDefault("name", "")));
+			row("event", desc + "  (remove)", false, () -> ClientNet.edit(new Edits.RemoveEvent(t.id(), e.id())), null);
+		}
+	}
+
+	private static void addTrackEvent(SceneObject t, int tick, String type, java.util.Map<String, Object> params) {
+		ClientScene.scene().ifPresent(scene -> ClientNet.edit(new Edits.AddEvent(t.id(),
+				new io.github.firestormfmd.scenescripter.core.scene.SceneEvent(EditActions.freshId(scene, "e"), tick, type,
+						null, params, null))));
+	}
+
+	// ---- Scene-wide rules ----
+
+	private void sceneRules(Scene scene) {
+		heading("Interaction rules");
+		var settings = scene.settings();
+		var r = settings.rules();
+		row("Attacks", r.attack() == null ? "auto" : r.attack().id(), false, () -> setRules(scene,
+				r.withAttack(nextMode(r.attack()) == null ? io.github.firestormfmd.scenescripter.core.scene.AttackMode.AUTO
+						: nextMode(r.attack()))), null);
+		boolean ff = Boolean.TRUE.equals(r.friendlyFire());
+		row("Friendly fire", ff ? "on" : "off", false, () -> setRules(scene,
+				new io.github.firestormfmd.scenescripter.core.scene.InteractionRules(r.attack(), r.knockback(), r.crits(),
+						r.hitCooldown(), r.autoDeath(), !ff, r.explosions())), null);
+		boolean death = !Boolean.FALSE.equals(r.autoDeath());
+		row("Auto death", death ? "on" : "off", false, () -> setRules(scene,
+				new io.github.firestormfmd.scenescripter.core.scene.InteractionRules(r.attack(), r.knockback(), r.crits(),
+						r.hitCooldown(), !death, r.friendlyFire(), r.explosions())), null);
+		var ex = r.explosions();
+		boolean breaks = !Boolean.FALSE.equals(ex.breakBlocks());
+		boolean hurtsReal = Boolean.TRUE.equals(ex.damageRealEntities());
+		boolean fire = Boolean.TRUE.equals(ex.fire());
+		row("Blasts break blocks", breaks ? "yes" : "no", false, () -> setRules(scene, withExplosions(r,
+				new io.github.firestormfmd.scenescripter.core.scene.ExplosionRules(!breaks, ex.damageObjects(),
+						ex.damageRealEntities(), ex.dropItems(), ex.fire()))), null);
+		row("Blasts hurt players", hurtsReal ? "yes" : "no", false, () -> setRules(scene, withExplosions(r,
+				new io.github.firestormfmd.scenescripter.core.scene.ExplosionRules(ex.breakBlocks(), ex.damageObjects(),
+						!hurtsReal, ex.dropItems(), ex.fire()))), null);
+		row("Blasts start fires", fire ? "yes" : "no", false, () -> setRules(scene, withExplosions(r,
+				new io.github.firestormfmd.scenescripter.core.scene.ExplosionRules(ex.breakBlocks(), ex.damageObjects(),
+						ex.damageRealEntities(), ex.dropItems(), !fire))), null);
+	}
+
+	private static io.github.firestormfmd.scenescripter.core.scene.InteractionRules withExplosions(
+			io.github.firestormfmd.scenescripter.core.scene.InteractionRules r,
+			io.github.firestormfmd.scenescripter.core.scene.ExplosionRules ex) {
+		return new io.github.firestormfmd.scenescripter.core.scene.InteractionRules(r.attack(), r.knockback(), r.crits(),
+				r.hitCooldown(), r.autoDeath(), r.friendlyFire(), ex);
+	}
+
+	private static void setRules(Scene scene, io.github.firestormfmd.scenescripter.core.scene.InteractionRules rules) {
+		var h = Edits.SetSceneHeader.of(scene);
+		ClientNet.edit(new Edits.SetSceneHeader(h.name(), h.length(), h.origin(), h.bounds(), h.settings().withRules(rules)));
 	}
 
 	private Vec3 currentPosition(SceneObject o) {

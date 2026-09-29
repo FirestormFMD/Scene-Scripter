@@ -99,11 +99,32 @@ public final class Scene {
 		idCounters.put(prefix, value);
 	}
 
+	/** ID of the scene's own track, which holds time of day, weather, sounds, commands and markers. */
+	public static final String TRACKS_ID = "scene";
+	public static final String TRACKS_TYPE = "scenescripter:scene";
+	private SceneObject tracks = new SceneObject(TRACKS_ID, "Scene", TRACKS_TYPE);
+
+	/**
+	 * The scene's own track. It is edited like an object (keyframes on {@code time_of_day} and {@code weather},
+	 * events such as {@code sound}, {@code command} and {@code marker}) but has no actor and is not in
+	 * {@link #objects()}.
+	 */
+	public SceneObject tracks() {
+		return tracks;
+	}
+
+	public static boolean isTracks(SceneObject o) {
+		return TRACKS_ID.equals(o.id());
+	}
+
 	public Collection<SceneObject> objects() {
 		return Collections.unmodifiableCollection(objects.values());
 	}
 
 	public Optional<SceneObject> object(String id) {
+		if (TRACKS_ID.equals(id)) {
+			return Optional.of(tracks);
+		}
 		return Optional.ofNullable(objects.get(id));
 	}
 
@@ -117,13 +138,21 @@ public final class Scene {
 
 	/** Adds an object at a position in the outliner order. */
 	public void addObject(SceneObject object, int index) {
+		if (TRACKS_ID.equals(object.id())) {
+			tracks = object;
+			return;
+		}
 		if (objects.containsKey(object.id())) {
 			throw new IllegalArgumentException("Duplicate object ID: " + object.id());
 		}
 		insertAt(objects, object.id(), object, index);
 	}
 
+	/** Removes an object. The scene track cannot be removed, only replaced: it is returned but stays. */
 	public Optional<SceneObject> removeObject(String id) {
+		if (TRACKS_ID.equals(id)) {
+			return Optional.of(tracks);
+		}
 		return Optional.ofNullable(objects.remove(id));
 	}
 
@@ -160,6 +189,9 @@ public final class Scene {
 
 	/** The object that owns the event with this ID, if any. */
 	public Optional<SceneObject> findEventOwner(String eventId) {
+		if (tracks.findEvent(eventId).isPresent()) {
+			return Optional.of(tracks);
+		}
 		for (SceneObject o : objects.values()) {
 			if (o.findEvent(eventId).isPresent()) {
 				return Optional.of(o);

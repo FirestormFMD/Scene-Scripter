@@ -120,6 +120,29 @@ public final class SceneManager {
 		return scene;
 	}
 
+	/**
+	 * Imports a shared scene file from the exports folder under a free name and opens it.
+	 *
+	 * @param at where to put the scene's origin, or null to keep its coordinates
+	 */
+	public Scene importScene(String fileName, ServerLevel level, net.minecraft.core.BlockPos at)
+			throws IOException, SceneFormatException {
+		Scene scene = storage.importFile(fileName);
+		String base = SceneStorage.cleanName(scene.name()).orElse("imported");
+		String name = base;
+		for (int i = 2; storage.exists(name); i++) {
+			name = base + "_" + i;
+		}
+		scene.setName(name);
+		if (at != null) {
+			io.github.firestormfmd.scenescripter.core.scene.SceneTransform.moveOrigin(scene,
+					new BlockPos(at.getX(), at.getY(), at.getZ()));
+		}
+		storage.save(name, scene);
+		openScene(name, scene, level);
+		return scene;
+	}
+
 	public Scene open(String rawName, ServerLevel level) throws IOException, SceneFormatException {
 		String name = SceneStorage.cleanName(rawName).orElseThrow(() -> new IOException("Bad scene name"));
 		if (!storage.exists(name)) {
@@ -285,6 +308,16 @@ public final class SceneManager {
 						session.applyToWorld();
 						player.sendSystemMessage(Component.literal("The scene's block changes up to tick "
 								+ session.clock().tick() + " are now part of the world"));
+					}
+				}
+				case Payloads.SceneCommand.RECORD -> {
+					if (session != null) {
+						session.playForRecording(c.length());
+					}
+				}
+				case Payloads.SceneCommand.RESET -> {
+					if (session != null) {
+						session.reset();
 					}
 				}
 				case Payloads.SceneCommand.FIT_BOUNDS -> {
