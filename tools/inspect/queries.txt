@@ -1,3 +1,2 @@
-# batch 17: are there 26.3 builds of the recorders yet?
-modrinth flashback
-modrinth replaymod
+# batch 18: Fabric API and Flashback builds for 26.3
+modrinth fabric-api
