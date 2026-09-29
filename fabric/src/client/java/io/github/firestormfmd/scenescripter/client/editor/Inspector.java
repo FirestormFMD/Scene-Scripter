@@ -117,6 +117,14 @@ final class Inspector {
 
 	// ---- Object ----
 
+	/** Look switches some types have: entity type, appearance key, label, and whether it is on by default. */
+	private static final String[][] APPEARANCE_TOGGLES = {
+			{"minecraft:creeper", "powered", "Charged", "off"},
+			{"minecraft:end_crystal", "base", "Bedrock base", "on"},
+			{"minecraft:arrow", "crit", "Critical trail", "off"},
+			{"minecraft:spectral_arrow", "crit", "Critical trail", "off"},
+	};
+
 	private void object(Scene scene, SceneObject o) {
 		heading(o.name() + "  (" + EditActions.prettyName(o.entityType()) + ")");
 		int nameY = rowY;
@@ -144,6 +152,21 @@ final class Inspector {
 					c.appearance().put("model", "wide");
 				} else {
 					c.appearance().remove("model");
+				}
+			}), null);
+		}
+		for (String[] toggle : APPEARANCE_TOGGLES) {
+			if (!toggle[0].equals(o.entityType())) {
+				continue;
+			}
+			String key = toggle[1];
+			boolean byDefault = toggle[3].equals("on");
+			boolean on = o.appearance().containsKey(key) ? "true".equals(o.appearance().get(key)) : byDefault;
+			row(toggle[2], on ? "yes" : "no", false, () -> EditActions.change(o, "Change " + toggle[2].toLowerCase(Locale.ROOT), c -> {
+				if (!on == byDefault) {
+					c.appearance().remove(key);
+				} else {
+					c.appearance().put(key, String.valueOf(!on));
 				}
 			}), null);
 		}

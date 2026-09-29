@@ -180,6 +180,8 @@ public final class ActorController {
 			tnt.setFuse(explodes < 0 ? 80 : Math.max(1, explodes - tick));
 		} else if (e instanceof Creeper creeper) {
 			creeper.setSwellDir(ignited(o, tick) ? 1 : -1);
+			creeper.getEntityData().set(io.github.firestormfmd.scenescripter.mixin.CreeperAccessor.scenescripter$poweredData(),
+					"true".equals(o.appearance().get("powered")));
 		} else if (e instanceof EndCrystal crystal) {
 			crystal.setShowBottom(!"false".equals(o.appearance().get("base")));
 		}
