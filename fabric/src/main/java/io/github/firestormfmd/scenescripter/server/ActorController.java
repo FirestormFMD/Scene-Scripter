@@ -55,6 +55,8 @@ public final class ActorController {
 	private final Map<String, Boolean> wasDead = new HashMap<>();
 	private final Map<String, Double> stepDistance = new HashMap<>();
 	private final Set<String> reportedMissingTypes = new HashSet<>();
+	/** Objects a player is performing right now; the player stands in for their actors. */
+	private final Set<String> hidden = new HashSet<>();
 
 	public ActorController(ServerLevel level) {
 		this.level = level;
@@ -69,6 +71,11 @@ public final class ActorController {
 		Map<String, Integer> ids = new LinkedHashMap<>();
 		actors.forEach((id, e) -> ids.put(id, e.getId()));
 		return ids;
+	}
+
+	public void setHidden(Set<String> objectIds) {
+		hidden.clear();
+		hidden.addAll(objectIds);
 	}
 
 	public Optional<Entity> actor(String objectId) {
@@ -88,7 +95,7 @@ public final class ActorController {
 			seen.add(o.id());
 			ObjectState s = evaluator.evaluate(o, tick);
 			boolean gone = s.dead() && s.ticksDead() >= DEATH_ANIMATION_TICKS;
-			boolean visible = s.exists() && !gone;
+			boolean visible = s.exists() && !gone && !hidden.contains(o.id());
 			Entity e = actors.get(o.id());
 
 			if (e != null && (e.isRemoved() || !typeMatches(e, o))) {

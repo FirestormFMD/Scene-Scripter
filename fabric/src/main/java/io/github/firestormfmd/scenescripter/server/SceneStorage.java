@@ -14,6 +14,7 @@ import java.util.Optional;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
 
+import io.github.firestormfmd.scenescripter.SceneScripter;
 import io.github.firestormfmd.scenescripter.core.io.SceneCodec;
 import io.github.firestormfmd.scenescripter.core.io.SceneFormatException;
 import io.github.firestormfmd.scenescripter.core.scene.Scene;
@@ -90,6 +91,46 @@ public final class SceneStorage {
 
 	public void delete(String name) throws IOException {
 		Files.deleteIfExists(file(name));
+		Files.deleteIfExists(takesFile(name));
+	}
+
+	/** Performance-capture takes are kept next to their scene, gzipped, since they hold a sample per tick. */
+	private Path takesFile(String name) {
+		return root.resolve("scenes").resolve(name + ".takes.gz");
+	}
+
+	public List<io.github.firestormfmd.scenescripter.core.capture.Take> loadTakes(String name) {
+		Path f = takesFile(name);
+		List<io.github.firestormfmd.scenescripter.core.capture.Take> takes = new ArrayList<>();
+		if (!Files.exists(f)) {
+			return takes;
+		}
+		try (var in = new java.io.InputStreamReader(new java.util.zip.GZIPInputStream(Files.newInputStream(f)),
+				StandardCharsets.UTF_8)) {
+			for (var el : com.google.gson.JsonParser.parseReader(in).getAsJsonArray()) {
+				takes.add(io.github.firestormfmd.scenescripter.core.capture.TakeCodec.fromJson(el.getAsJsonObject()));
+			}
+		} catch (IOException | SceneFormatException | RuntimeException e) {
+			SceneScripter.LOGGER.error("Could not read the takes of scene {}", name, e);
+		}
+		return takes;
+	}
+
+	public void saveTakes(String name, List<io.github.firestormfmd.scenescripter.core.capture.Take> takes) throws IOException {
+		Path f = takesFile(name);
+		if (takes.isEmpty()) {
+			Files.deleteIfExists(f);
+			return;
+		}
+		Files.createDirectories(f.getParent());
+		com.google.gson.JsonArray all = new com.google.gson.JsonArray();
+		takes.forEach(t -> all.add(io.github.firestormfmd.scenescripter.core.capture.TakeCodec.toJson(t)));
+		Path tmp = f.resolveSibling(name + ".takes.gz.tmp");
+		try (var out = new java.io.OutputStreamWriter(new java.util.zip.GZIPOutputStream(Files.newOutputStream(tmp)),
+				StandardCharsets.UTF_8)) {
+			out.write(all.toString());
+		}
+		Files.move(tmp, f, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
 	}
 
 	/** Writes a scene to a standalone file for sharing. */

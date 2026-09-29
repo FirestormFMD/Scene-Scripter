@@ -215,12 +215,63 @@ public final class Payloads {
 		}
 	}
 
+	/**
+	 * Starts or stops performance capture, or applies a take.
+	 *
+	 * @param punchOut last tick to record, or -1 for the end of the scene
+	 * @param mode how a take is applied: {@code keys}, {@code raw} or {@code path}
+	 */
+	public record Capture(int action, String objectId, int punchIn, int punchOut, int preroll, boolean loop,
+			String takeId, String mode) implements CustomPacketPayload {
+		public static final int START = 0;
+		public static final int STOP = 1;
+		public static final int USE_TAKE = 2;
+
+		public static final Type<Capture> TYPE = payloadType("capture");
+		public static final StreamCodec<FriendlyByteBuf, Capture> CODEC = StreamCodec.of(
+				(buf, p) -> {
+					buf.writeVarInt(p.action());
+					buf.writeUtf(p.objectId(), 128);
+					buf.writeVarInt(p.punchIn());
+					buf.writeVarInt(p.punchOut() + 1);
+					buf.writeVarInt(p.preroll());
+					buf.writeBoolean(p.loop());
+					buf.writeUtf(p.takeId(), 128);
+					buf.writeUtf(p.mode(), 16);
+				},
+				buf -> new Capture(buf.readVarInt(), buf.readUtf(128), buf.readVarInt(), buf.readVarInt() - 1,
+						buf.readVarInt(), buf.readBoolean(), buf.readUtf(128), buf.readUtf(16)));
+
+		@Override
+		public Type<Capture> type() {
+			return TYPE;
+		}
+	}
+
+	/** Whether this player is performing an object right now, so the client closes the editor and Right Ctrl stops. */
+	public record CaptureState(boolean active, String objectId) implements CustomPacketPayload {
+		public static final Type<CaptureState> TYPE = payloadType("capture_state");
+		public static final StreamCodec<FriendlyByteBuf, CaptureState> CODEC = StreamCodec.of(
+				(buf, p) -> {
+					buf.writeBoolean(p.active());
+					buf.writeUtf(p.objectId(), 128);
+				},
+				buf -> new CaptureState(buf.readBoolean(), buf.readUtf(128)));
+
+		@Override
+		public Type<CaptureState> type() {
+			return TYPE;
+		}
+	}
+
 	public static void register() {
 		PayloadTypeRegistry.serverboundPlay().register(EditorState.TYPE, EditorState.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(Edit.TYPE, Edit.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(History.TYPE, History.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(Playback.TYPE, Playback.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(SceneCommand.TYPE, SceneCommand.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(Capture.TYPE, Capture.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(CaptureState.TYPE, CaptureState.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(SceneData.TYPE, SceneData.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(PlaybackState.TYPE, PlaybackState.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(ActorIds.TYPE, ActorIds.CODEC);

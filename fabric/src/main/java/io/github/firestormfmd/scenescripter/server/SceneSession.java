@@ -40,6 +40,8 @@ public final class SceneSession {
 	private static final TicketType SCENE_TICKET = new TicketType(0L,
 			TicketType.FLAG_LOADING | TicketType.FLAG_SIMULATION | TicketType.FLAG_KEEP_DIMENSION_ACTIVE);
 	private final List<ChunkPos> loadedChunks = new java.util.ArrayList<>();
+	private final List<io.github.firestormfmd.scenescripter.core.capture.Take> takes = new java.util.ArrayList<>();
+	private boolean takesChanged;
 	private long appliedRevision = -1;
 	private long savedRevision;
 	private boolean actorListChanged = true;
@@ -100,6 +102,60 @@ public final class SceneSession {
 	/** Hit or miss of every attack, for the editor to draw. */
 	public List<Solver.AttackResult> attackResults() {
 		return attackResults;
+	}
+
+	/** Performance-capture takes of this scene, oldest first. */
+	public List<io.github.firestormfmd.scenescripter.core.capture.Take> takes() {
+		return java.util.Collections.unmodifiableList(takes);
+	}
+
+	public void loadTakes(List<io.github.firestormfmd.scenescripter.core.capture.Take> loaded) {
+		takes.clear();
+		takes.addAll(loaded);
+	}
+
+	public void addTake(io.github.firestormfmd.scenescripter.core.capture.Take take) {
+		takes.add(take);
+		takesChanged = true;
+		stateChanged = true;
+	}
+
+	public java.util.Optional<io.github.firestormfmd.scenescripter.core.capture.Take> take(String id) {
+		return takes.stream().filter(t -> t.id().equals(id)).findFirst();
+	}
+
+	/** Whether takes were added since the last call, so they need saving. */
+	public boolean consumeTakesChanged() {
+		boolean c = takesChanged;
+		takesChanged = false;
+		return c;
+	}
+
+	/**
+	 * Applies a take to its object, replacing what the object did in the take's range. Undoable.
+	 *
+	 * @param mode {@code keys} (thinned keyframes), {@code raw} (a key every tick) or {@code path} (a fitted motion
+	 *             path)
+	 */
+	public void applyTake(io.github.firestormfmd.scenescripter.core.capture.Take take, String targetId, String mode) {
+		var object = scene.object(targetId).orElseThrow(() -> new IllegalArgumentException("No object " + targetId));
+		var copy = object.copy();
+		if (mode.equals("path")) {
+			String pathId = scene.newId("p");
+			var fit = io.github.firestormfmd.scenescripter.core.capture.TakeConverter.applyAsPath(copy, take, pathId,
+					object.name() + " " + take.name(), 0.3);
+			if (fit != null) {
+				perform(new io.github.firestormfmd.scenescripter.core.edit.Edits.Composite("Use " + take.name() + " as a path",
+						List.of(new io.github.firestormfmd.scenescripter.core.edit.Edits.AddPath(fit.path()),
+								new io.github.firestormfmd.scenescripter.core.edit.Edits.ReplaceObject(copy, "Use " + take.name()))));
+				return;
+			}
+		} else {
+			io.github.firestormfmd.scenescripter.core.capture.TakeConverter.applyAsKeys(copy, take, mode.equals("raw")
+					? io.github.firestormfmd.scenescripter.core.capture.TakeConverter.KeyMode.RAW
+					: io.github.firestormfmd.scenescripter.core.capture.TakeConverter.KeyMode.THINNED);
+		}
+		perform(new io.github.firestormfmd.scenescripter.core.edit.Edits.ReplaceObject(copy, "Use " + take.name()));
 	}
 
 	/** Every explosion the scene sets off, with the blocks it breaks. */

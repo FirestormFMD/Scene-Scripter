@@ -28,6 +28,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 
+import io.github.firestormfmd.scenescripter.SceneScripter;
 import io.github.firestormfmd.scenescripter.core.journal.BlockChange;
 import io.github.firestormfmd.scenescripter.core.journal.ChangeSet;
 import io.github.firestormfmd.scenescripter.core.math.Vec3;
