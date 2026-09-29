@@ -1,25 +1,20 @@
-# batch 7
-find ClientboundExplodePacket.java
-find ServerExplosion.java
-find PrimedTnt.java
-find TntBlock.java
-find Creeper.java
-find EndCrystal.java
-find AbstractArrow.java
-find LargeFireball.java
-find AbstractThrownPotion.java
-find ThrownTrident.java
-find LevelEvent.java
-find BlockStateParser.java
-grep network/protocol/game/ClientboundExplodePacket.java record ClientboundExplodePacket|public ClientboundExplodePacket
-grep server/level/ServerLevel.java public .* explode\(|new ClientboundExplodePacket|public void setDayTime|public long getDayTime|public void setWeatherParameters|public int sendParticles\(|public void blockEvent\(|public void levelEvent\(|public void playSound\(|clock|Clock
-grep world/level/ServerExplosion.java 0\.7F|0\.6F|0\.3F|0\.22500001F|7\.0|nextInt\(3\)|isSolidRender|getSeenPercent\(|EXPLOSION_KNOCKBACK_RESISTANCE|getEyeY|private .*\(|public .*\(
-grep world/level/block/TntBlock.java nextInt|setFuse|wasExploded|public static
-grep server/level/ServerChunkCache.java public void addTicketWithRadius|public void removeTicketWithRadius|public .*Ticket
-grep server/level/TicketType.java public static final
-grep world/level/block/state/properties/BlockStateProperties.java BooleanProperty OPEN|BooleanProperty POWERED|DOUBLE_BLOCK_HALF =|BooleanProperty LIT
-grep world/entity/LivingEntity.java public boolean swinging|public int swingTime|public void setInvulnerable|public float getAttackAnim
-grep world/entity/Entity.java public void setInvulnerable|public void stopRiding|public Entity getVehicle|public void setNoGravity|public void setDeltaMovement\(Vec3|public boolean hurtMarked|public boolean isNoGravity
-grep server/level/ServerPlayer.java public void sendSystemMessage|public void sendOverlayMessage|public void setGameMode|public boolean setGameMode
-grep commands/Commands.java public void performPrefixedCommand|public void performCommand
-grep server/MinecraftServer.java public CommandSourceStack createCommandSourceStack|public Commands getCommands
+# batch 8
+lines server/level/ServerLevel.java 1207 1246
+grep world/clock/ServerClockManager.java public
+find TimeCommand.java
+find WeatherCommand.java
+grep world/entity/item/PrimedTnt.java public .*\(
+grep world/entity/monster/Creeper.java public .*\(
+grep world/entity/projectile/arrow/AbstractArrow.java public .*\(|IN_GROUND|void setInGround
+grep world/entity/boss/enderdragon/EndCrystal.java public .*\(
+grep world/level/block/LevelEvent.java PARTICLES_DESTROY_BLOCK|PARTICLES_SPELL_POTION_SPLASH|PARTICLES_EGG_CRACK|PARTICLES_SMOKE
+grep commands/arguments/blocks/BlockStateParser.java public static|public record
+grep server/level/TicketType.java record|register\(
+grep world/level/Level.java public void playSound\(|public void playSeededSound\(
+grep server/level/ServerLevel.java public <T extends ParticleOptions> int sendParticles|public void playSeededSound
+grep world/level/BlockGetter.java BlockEntity getBlockEntity|BlockState getBlockState|FluidState getFluidState|default BlockHitResult clip|static <T, C> T traverseBlocks
+grep world/level/LevelHeightAccessor.java int getHeight|int getMinY
+grep world/level/block/BaseFireBlock.java public static BlockState getState
+grep world/level/block/Block.java public float getExplosionResistance
+grep world/level/material/FluidState.java getExplosionResistance|public boolean isEmpty
+grep server/network/ServerGamePacketListenerImpl.java public void handleAnimate|public void handleUseItemOn|public void handlePlayerAction
