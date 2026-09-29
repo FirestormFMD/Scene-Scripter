@@ -1,19 +1,23 @@
-# batch 3: actor runtime hooks
-grep server/level/ServerLevel.java void tickNonPassenger|void tickPassenger|entity\.tick\(\)|passenger\.rideTick\(\)
-grep world/entity boolean shouldBeSaved|boolean isIgnoringBlockTriggers|boolean canBeSeenAsEnemy|boolean isAttackable\(\)
-grep world/entity boolean isPickable\(\)
-grep world/entity boolean canBeCollidedWith\(
-grep world/entity boolean canHitEntity\(
-grep world/entity boolean isPushable\(\)
-grep world/entity/LivingEntity.java public void swing\(|public void setHealth|public final float getMaxHealth|public void setItemSlot|AttributeInstance getAttribute\(|void tickDeath|public boolean addEffect\(|public void setYBodyRot|public void setYHeadRot|public void setSprinting
-grep world/entity/Mob.java public void setNoAi|public void playAmbientSound|public void setItemSlot|public void setAggressive
-grep server/level/ServerLevel.java public void broadcastDamageEvent|public void broadcastEntityEvent|public boolean addFreshEntity|public .* explode\(|public DamageSources|public .*getEntity\(
-grep world/level/Level.java public boolean setBlock\(|public .* explode\(|public DamageSources damageSources
-grep world/entity/EntityType.java public static Optional<EntityType<\?>> byString|public @Nullable T create\(|public T create\(|int clientTrackingRange|EntityDimensions getDimensions
-grep world/item/component/ResolvableProfile.java public static|public ResolvableProfile|record ResolvableProfile|class ResolvableProfile|interface ResolvableProfile
-lines world/entity/Pose.java 11 34
-grep world/entity/ai/attributes/Attributes.java Holder<Attribute> (SCALE|STEP_HEIGHT|JUMP_STRENGTH|MOVEMENT_SPEED|MAX_HEALTH|ENTITY_INTERACTION_RANGE|ATTACK_DAMAGE|ATTACK_KNOCKBACK|KNOCKBACK_RESISTANCE|ARMOR) 
-grep world/damagesource/DamageSources.java public DamageSource (generic|mobAttack|playerAttack|explosion)\(
-method server/level/ServerLevel.java tickNonPassenger
-grep world/entity/EquipmentSlot.java ^\s+[A-Z_]+\(
-grep world/entity/EntitySpawnReason.java ^\s+[A-Z_]+[,;]
+# batch 4: terrain, block entities, editor client APIs
+grep world/level/block/Block.java public static final int UPDATE_
+grep world/level/block/state/BlockBehaviour.java public VoxelShape getCollisionShape\(|public FluidState getFluidState\(|public SoundType getSoundType\(|public boolean isAir\(|public float getDestroySpeed|public .*getExplosionResistance
+grep world/phys/shapes/VoxelShape.java public double max\(|public boolean isEmpty\(|public AABB bounds\(
+grep world/level/material/FluidState.java public float getHeight\(|public boolean isEmpty\(|public float getOwnHeight\(|public boolean is\(
+grep world/level/block/entity/BlockEntity.java public .* save|public .* load|public static .*loadStatic|public final CompoundTag|public void loadWithComponents
+grep world/level/Level.java public .* getBlockEntity\(|public void removeBlockEntity|public .* setBlockEntity\(
+outline gizmos/Gizmos.java
+grep gizmos public static .* (stroke|fill|strokeAndFill)\(
+grep client/renderer/debug/DebugRenderer.java renderers|interface SimpleDebugRenderer|void emitGizmos|public void emitGizmos|refreshRendererList|private .*List
+grep client/gui/components/events/GuiEventListener.java default boolean|boolean mouse|boolean key|boolean char
+grep client/input/MouseButtonEvent.java record|public .*\(
+grep client/input/KeyEvent.java record|public .*\(
+grep client/gui/screens/Screen.java public boolean isPauseScreen|public void extractBackground|protected void init\(|public void onClose|public void removed|public boolean shouldCloseOnEsc|protected <T extends .*> T addRenderableWidget|public void extractRenderState
+grep client/gui/GuiGraphicsExtractor.java public void (fill|fillGradient|text|centeredText|outline|hLine|vLine|enableScissor|disableScissor|item|renderOutline)\(
+grep client/Camera.java public .*(position|getPosition|yRot|xRot|getYRot|getXRot|getLookVector|forwards)\(
+grep client/player/LocalPlayer.java public .*Input|public void sendOverlayMessage|public boolean isCreative
+grep world/entity/player/Abilities.java public boolean (flying|mayfly|instabuild)|public void setFlyingSpeed|public float getFlyingSpeed
+grep client/MouseHandler.java public void (grabMouse|releaseMouse)|public boolean isMouseGrabbed|public double (xpos|ypos)
+grep client/multiplayer/ClientLevel.java public Iterable<Entity> entitiesForRendering|public .*getEntity\(int
+grep com/mojang/blaze3d/platform/InputConstants.java public static boolean isKeyDown
+grep client/Minecraft.java public (final )?(Gui|Window|MouseHandler|GameRenderer|Font|Options|LocalPlayer|ClientLevel) |public .*getWindow\(|public .*getDeltaTracker|public float getFrameTime
+grep client/renderer/GameRenderer.java public Camera getMainCamera|public void pick\(|getProjectionMatrix|public .*getFov
