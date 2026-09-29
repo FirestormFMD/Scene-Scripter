@@ -6,12 +6,15 @@ import java.util.Optional;
 
 import io.github.firestormfmd.scenescripter.core.anim.Channel;
 import io.github.firestormfmd.scenescripter.core.anim.Keyframe;
+import io.github.firestormfmd.scenescripter.core.math.BlockBox;
+import io.github.firestormfmd.scenescripter.core.math.BlockPos;
 import io.github.firestormfmd.scenescripter.core.scene.BuiltInChannels;
 import io.github.firestormfmd.scenescripter.core.scene.MotionPath;
 import io.github.firestormfmd.scenescripter.core.scene.PathPoint;
 import io.github.firestormfmd.scenescripter.core.scene.Scene;
 import io.github.firestormfmd.scenescripter.core.scene.SceneEvent;
 import io.github.firestormfmd.scenescripter.core.scene.SceneObject;
+import io.github.firestormfmd.scenescripter.core.scene.SceneSettings;
 
 /**
  * The edit ops the editor uses.
@@ -211,6 +214,63 @@ public final class Edits {
 			path.points().clear();
 			path.points().addAll(points);
 			return new SetPathPoints(pathId, old, label);
+		}
+	}
+
+	/**
+	 * Replaces an object with a new version of itself, keeping its place in the outliner. Used for property edits
+	 * such as lifetime, appearance, motion clips or rules.
+	 */
+	public record ReplaceObject(SceneObject object, String label) implements EditOp {
+		public ReplaceObject {
+			object = object.copy();
+		}
+
+		@Override
+		public EditOp apply(Scene scene) {
+			int index = scene.indexOfObject(object.id());
+			SceneObject old = scene.removeObject(object.id()).orElseThrow(() -> missing("object", object.id()));
+			scene.addObject(object.copy(), index);
+			return new ReplaceObject(old, label);
+		}
+	}
+
+	/** Replaces a path with a new version of itself, keeping its place in the outliner. */
+	public record ReplacePath(MotionPath path, String label) implements EditOp {
+		public ReplacePath {
+			path = path.copy();
+		}
+
+		@Override
+		public EditOp apply(Scene scene) {
+			int index = scene.indexOfPath(path.id());
+			MotionPath old = scene.removePath(path.id()).orElseThrow(() -> missing("path", path.id()));
+			scene.addPath(path.copy(), index);
+			return new ReplacePath(old, label);
+		}
+	}
+
+	/** Changes the scene's name, length, origin, bounds and settings. */
+	public record SetSceneHeader(String name, int length, BlockPos origin, BlockBox bounds, SceneSettings settings)
+			implements EditOp {
+		public static SetSceneHeader of(Scene scene) {
+			return new SetSceneHeader(scene.name(), scene.length(), scene.origin(), scene.bounds(), scene.settings());
+		}
+
+		@Override
+		public EditOp apply(Scene scene) {
+			SetSceneHeader old = of(scene);
+			scene.setName(name);
+			scene.setLength(length);
+			scene.setOrigin(origin);
+			scene.setBounds(bounds);
+			scene.setSettings(settings);
+			return old;
+		}
+
+		@Override
+		public String label() {
+			return "Change scene settings";
 		}
 	}
 

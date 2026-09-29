@@ -94,8 +94,10 @@ public final class Channel<T> {
 	}
 
 	/**
-	 * Value at a (possibly fractional) tick. Before the first keyframe the first value holds, after the last the
-	 * last value holds, and with no keyframes the default applies.
+	 * Value at a (possibly fractional) tick. With no keyframes the default applies. After the last keyframe its
+	 * value holds. Before the first keyframe, numeric channels hold the first value (so a curve starts where it is
+	 * keyed) while stepped channels use the default, so a single "dead at tick 100" or "sword at tick 50"
+	 * keyframe does not reach back to the start of the scene.
 	 */
 	public T valueAt(double tick) {
 		if (keys.isEmpty()) {
@@ -103,7 +105,7 @@ public final class Channel<T> {
 		}
 		int i = lastIndexAtOrBefore(tick);
 		if (i < 0) {
-			return keys.getFirst().value();
+			return type.interpolates() ? keys.getFirst().value() : defaultValue;
 		}
 		Keyframe<T> k0 = keys.get(i);
 		if (i == keys.size() - 1 || tick == k0.tick()) {

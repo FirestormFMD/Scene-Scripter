@@ -98,7 +98,7 @@ public final class SceneCodec {
 		return o;
 	}
 
-	private static JsonObject settings(SceneSettings s) {
+	public static JsonObject settings(SceneSettings s) {
 		JsonObject o = new JsonObject();
 		GroundFilter g = s.groundFilter();
 		JsonObject gf = new JsonObject();
@@ -115,7 +115,7 @@ public final class SceneCodec {
 		return o;
 	}
 
-	private static JsonObject rules(InteractionRules r) {
+	public static JsonObject rules(InteractionRules r) {
 		JsonObject o = new JsonObject();
 		if (r.attack() != null) o.addProperty("attack", r.attack().id());
 		if (r.knockback() != null) o.addProperty("knockback", r.knockback());
@@ -134,7 +134,7 @@ public final class SceneCodec {
 		return o;
 	}
 
-	private static JsonObject path(MotionPath p) {
+	public static JsonObject path(MotionPath p) {
 		JsonObject o = new JsonObject();
 		o.addProperty("id", p.id());
 		o.addProperty("name", p.name());
@@ -154,11 +154,7 @@ public final class SceneCodec {
 
 		JsonArray points = new JsonArray();
 		for (PathPoint pt : p.points()) {
-			JsonObject po = new JsonObject();
-			po.add("pos", vec(pt.pos()));
-			if (pt.handleIn() != null) po.add("in", vec(pt.handleIn()));
-			if (pt.handleOut() != null) po.add("out", vec(pt.handleOut()));
-			points.add(po);
+			points.add(pathPoint(pt));
 		}
 		o.add("points", points);
 
@@ -176,7 +172,7 @@ public final class SceneCodec {
 		return o;
 	}
 
-	private static JsonObject object(SceneObject obj) {
+	public static JsonObject object(SceneObject obj) {
 		JsonObject o = new JsonObject();
 		o.addProperty("id", obj.id());
 		o.addProperty("name", obj.name());
@@ -208,18 +204,7 @@ public final class SceneCodec {
 
 		JsonArray events = new JsonArray();
 		for (SceneEvent e : obj.events()) {
-			JsonObject eo = new JsonObject();
-			eo.addProperty("id", e.id());
-			eo.addProperty("t", e.tick());
-			eo.addProperty("type", e.type());
-			if (e.target() != null) eo.addProperty("target", e.target());
-			if (!e.params().isEmpty()) {
-				JsonObject params = new JsonObject();
-				e.params().forEach((k, v) -> params.add(k, primitive(v)));
-				eo.add("params", params);
-			}
-			if (e.generatedBy() != null) eo.addProperty("gen", e.generatedBy());
-			events.add(eo);
+			events.add(event(e));
 		}
 		o.add("events", events);
 
@@ -228,32 +213,100 @@ public final class SceneCodec {
 		return o;
 	}
 
+	public static <T> JsonObject keyframe(ValueType<T> type, Keyframe<T> k) {
+		JsonObject ko = new JsonObject();
+		ko.addProperty("t", k.tick());
+		ko.add("v", value(type, k.value()));
+		if (k.interpolation() != Interpolation.LINEAR) ko.addProperty("i", k.interpolation().id());
+		if (k.handles() != null) {
+			JsonArray h = new JsonArray();
+			h.add(k.handles().inDt());
+			h.add(k.handles().inDv());
+			h.add(k.handles().outDt());
+			h.add(k.handles().outDv());
+			ko.add("h", h);
+		}
+		if (k.generatedBy() != null) ko.addProperty("gen", k.generatedBy());
+		return ko;
+	}
+
+	public static <T> Keyframe<T> readKeyframe(ValueType<T> type, JsonObject ko) {
+		Handles handles = null;
+		if (ko.has("h")) {
+			JsonArray h = ko.getAsJsonArray("h");
+			handles = new Handles(h.get(0).getAsDouble(), h.get(1).getAsDouble(),
+					h.get(2).getAsDouble(), h.get(3).getAsDouble());
+		}
+		return new Keyframe<>(
+				req(ko, "t").getAsInt(),
+				readValue(type, req(ko, "v")),
+				ko.has("i") ? Interpolation.byId(str(ko, "i")) : Interpolation.LINEAR,
+				handles,
+				ko.has("gen") ? str(ko, "gen") : null);
+	}
+
+	public static JsonObject event(SceneEvent e) {
+		JsonObject eo = new JsonObject();
+		eo.addProperty("id", e.id());
+		eo.addProperty("t", e.tick());
+		eo.addProperty("type", e.type());
+		if (e.target() != null) eo.addProperty("target", e.target());
+		if (!e.params().isEmpty()) {
+			JsonObject params = new JsonObject();
+			e.params().forEach((k, v) -> params.add(k, primitive(v)));
+			eo.add("params", params);
+		}
+		if (e.generatedBy() != null) eo.addProperty("gen", e.generatedBy());
+		return eo;
+	}
+
+	public static SceneEvent readEvent(JsonObject eo) {
+		Map<String, Object> params = new LinkedHashMap<>();
+		if (eo.has("params")) {
+			for (Map.Entry<String, JsonElement> p : eo.getAsJsonObject("params").entrySet()) {
+				params.put(p.getKey(), readPrimitive(p.getValue().getAsJsonPrimitive()));
+			}
+		}
+		return new SceneEvent(str(eo, "id"), req(eo, "t").getAsInt(), str(eo, "type"),
+				eo.has("target") ? str(eo, "target") : null, params,
+				eo.has("gen") ? str(eo, "gen") : null);
+	}
+
+	public static JsonObject pathPoint(PathPoint pt) {
+		JsonObject po = new JsonObject();
+		po.add("pos", vec(pt.pos()));
+		if (pt.handleIn() != null) po.add("in", vec(pt.handleIn()));
+		if (pt.handleOut() != null) po.add("out", vec(pt.handleOut()));
+		return po;
+	}
+
+	public static PathPoint readPathPoint(JsonObject po) {
+		return new PathPoint(readVec(req(po, "pos")),
+				po.has("in") ? readVec(po.get("in")) : null,
+				po.has("out") ? readVec(po.get("out")) : null);
+	}
+
+	public static JsonArray blockPosJson(BlockPos p) {
+		return blockPos(p);
+	}
+
+	public static BlockPos readBlockPosJson(JsonElement e) {
+		return readBlockPos(e);
+	}
+
 	private static <T> JsonObject channel(Channel<T> ch) {
 		JsonObject o = new JsonObject();
 		o.addProperty("type", ch.type().id());
 		o.add("default", value(ch.type(), ch.defaultValue()));
 		JsonArray keys = new JsonArray();
 		for (Keyframe<T> k : ch.keys()) {
-			JsonObject ko = new JsonObject();
-			ko.addProperty("t", k.tick());
-			ko.add("v", value(ch.type(), k.value()));
-			if (k.interpolation() != Interpolation.LINEAR) ko.addProperty("i", k.interpolation().id());
-			if (k.handles() != null) {
-				JsonArray h = new JsonArray();
-				h.add(k.handles().inDt());
-				h.add(k.handles().inDv());
-				h.add(k.handles().outDt());
-				h.add(k.handles().outDv());
-				ko.add("h", h);
-			}
-			if (k.generatedBy() != null) ko.addProperty("gen", k.generatedBy());
-			keys.add(ko);
+			keys.add(keyframe(ch.type(), k));
 		}
 		o.add("keys", keys);
 		return o;
 	}
 
-	private static <T> JsonElement value(ValueType<T> type, T value) {
+	public static <T> JsonElement value(ValueType<T> type, T value) {
 		if (type == ValueType.FLOAT || type == ValueType.INT) {
 			return new JsonPrimitive((Number) value);
 		} else if (type == ValueType.BOOL) {
@@ -271,7 +324,7 @@ public final class SceneCodec {
 		return new JsonPrimitive((String) v);
 	}
 
-	private static JsonArray vec(Vec3 v) {
+	public static JsonArray vec(Vec3 v) {
 		JsonArray a = new JsonArray();
 		a.add(v.x());
 		a.add(v.y());
@@ -329,7 +382,7 @@ public final class SceneCodec {
 		return scene;
 	}
 
-	private static SceneSettings readSettings(JsonObject o) {
+	public static SceneSettings readSettings(JsonObject o) {
 		SceneSettings d = SceneSettings.DEFAULTS;
 		GroundFilter filter = d.groundFilter();
 		if (o.has("groundFilter")) {
@@ -350,7 +403,7 @@ public final class SceneCodec {
 		return new SceneSettings(filter, rules, range);
 	}
 
-	private static InteractionRules readRules(JsonObject o) {
+	public static InteractionRules readRules(JsonObject o) {
 		ExplosionRules explosions = ExplosionRules.INHERIT;
 		if (o.has("explosions")) {
 			JsonObject e = o.getAsJsonObject("explosions");
@@ -367,7 +420,7 @@ public final class SceneCodec {
 				explosions);
 	}
 
-	private static MotionPath readPath(JsonObject o) {
+	public static MotionPath readPath(JsonObject o) {
 		MotionPath p = new MotionPath(str(o, "id"), str(o, "name"), PathKind.byId(str(o, "kind")));
 		if (o.has("gait")) p.setGait(Gait.byId(str(o, "gait")));
 		if (o.has("speed")) {
@@ -381,10 +434,7 @@ public final class SceneCodec {
 			p.setSpeedKeys(keys);
 		}
 		for (JsonElement e : array(o, "points")) {
-			JsonObject po = e.getAsJsonObject();
-			p.points().add(new PathPoint(readVec(req(po, "pos")),
-					po.has("in") ? readVec(po.get("in")) : null,
-					po.has("out") ? readVec(po.get("out")) : null));
+			p.points().add(readPathPoint(e.getAsJsonObject()));
 		}
 		List<PathMarker> markers = new ArrayList<>();
 		for (JsonElement e : array(o, "markers")) {
@@ -401,7 +451,7 @@ public final class SceneCodec {
 		return p;
 	}
 
-	private static SceneObject readObject(JsonObject o) {
+	public static SceneObject readObject(JsonObject o) {
 		SceneObject obj = new SceneObject(str(o, "id"), str(o, "name"), str(o, "type"));
 		if (o.has("appearance")) {
 			for (Map.Entry<String, JsonElement> e : o.getAsJsonObject("appearance").entrySet()) {
@@ -426,16 +476,7 @@ public final class SceneCodec {
 			}
 		}
 		for (JsonElement e : array(o, "events")) {
-			JsonObject eo = e.getAsJsonObject();
-			Map<String, Object> params = new LinkedHashMap<>();
-			if (eo.has("params")) {
-				for (Map.Entry<String, JsonElement> p : eo.getAsJsonObject("params").entrySet()) {
-					params.put(p.getKey(), readPrimitive(p.getValue().getAsJsonPrimitive()));
-				}
-			}
-			obj.addEvent(new SceneEvent(str(eo, "id"), req(eo, "t").getAsInt(), str(eo, "type"),
-					eo.has("target") ? str(eo, "target") : null, params,
-					eo.has("gen") ? str(eo, "gen") : null));
+			obj.addEvent(readEvent(e.getAsJsonObject()));
 		}
 		if (o.has("rules")) obj.setRules(readRules(o.getAsJsonObject("rules")));
 		return obj;
@@ -448,24 +489,12 @@ public final class SceneCodec {
 	private static <T> Channel<T> readChannel(ValueType<T> type, JsonObject o) {
 		Channel<T> ch = new Channel<>(type, readValue(type, req(o, "default")));
 		for (JsonElement e : array(o, "keys")) {
-			JsonObject ko = e.getAsJsonObject();
-			Handles handles = null;
-			if (ko.has("h")) {
-				JsonArray h = ko.getAsJsonArray("h");
-				handles = new Handles(h.get(0).getAsDouble(), h.get(1).getAsDouble(),
-						h.get(2).getAsDouble(), h.get(3).getAsDouble());
-			}
-			ch.put(new Keyframe<>(
-					req(ko, "t").getAsInt(),
-					readValue(type, req(ko, "v")),
-					ko.has("i") ? Interpolation.byId(str(ko, "i")) : Interpolation.LINEAR,
-					handles,
-					ko.has("gen") ? str(ko, "gen") : null));
+			ch.put(readKeyframe(type, e.getAsJsonObject()));
 		}
 		return ch;
 	}
 
-	private static <T> T readValue(ValueType<T> type, JsonElement e) {
+	public static <T> T readValue(ValueType<T> type, JsonElement e) {
 		Object v;
 		if (type == ValueType.FLOAT) {
 			v = e.getAsDouble();
@@ -487,7 +516,7 @@ public final class SceneCodec {
 		return p.getAsString();
 	}
 
-	private static Vec3 readVec(JsonElement e) {
+	public static Vec3 readVec(JsonElement e) {
 		JsonArray a = e.getAsJsonArray();
 		return new Vec3(a.get(0).getAsDouble(), a.get(1).getAsDouble(), a.get(2).getAsDouble());
 	}
