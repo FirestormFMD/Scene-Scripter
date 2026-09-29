@@ -1,7 +1,7 @@
-# batch 13
-grep world/entity/animal/wolf/Wolf.java (public|protected|private) .*(Collar|Anger|Angry|Interested)[A-Za-z]*\(
-grep world/entity/NeutralMob.java (default|void|long|int|boolean) .*\(
-grep world/entity/animal/equine/AbstractHorse.java (public|protected|private) .*(Standing|Eating|MouthOpen|Flag)[A-Za-z]*\(
-grep world/entity/npc/villager/AbstractVillager.java (public|protected|private) .*Unhappy[A-Za-z]*\(
-grep world/entity/npc/villager/VillagerData.java public .*\(
-grep world/entity/npc/villager/Villager.java public .*VillagerData[A-Za-z]*\(
+# batch 14
+grep world/entity/TamableAnimal.java public .*Tame[A-Za-z]*\(
+lines world/entity/animal/equine/AbstractHorse.java 660 680
+lines world/entity/animal/wolf/Wolf.java 550 590
+lines world/entity/NeutralMob.java 110 120
+grep world/entity/npc/villager/VillagerProfession.java public static final ResourceKey
+grep world/entity/npc/villager/VillagerType.java public static final ResourceKey
