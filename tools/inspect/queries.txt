@@ -1,20 +1,19 @@
-# batch 2: actor runtime hooks
-outline world/entity/decoration/Mannequin.java
-outline world/entity/Avatar.java
-grep (void tickNonPassenger|void tickPassenger|entity\.tick\(\)|passenger\.rideTick\(\)) server/level/ServerLevel.java
-grep (boolean shouldBeSaved|boolean isIgnoringBlockTriggers|boolean canBeSeenAsEnemy|boolean isAttackable\(\)|boolean canBeSeenByAnyone) world/entity
-grep boolean isPickable\(\) world/entity
-grep boolean canBeCollidedWith\( world/entity
-grep boolean canHitEntity\( world/entity
-grep boolean isPushable\(\) world/entity
-grep (public void swing\(|public void setHealth|public final float getMaxHealth|public void playAmbientSound|public void setItemSlot|public .*AttributeInstance getAttribute\(|protected void tickDeath|public boolean addEffect\(|public void setYBodyRot|public void setYHeadRot) world/entity/LivingEntity.java world/entity/Mob.java world/entity/Entity.java
-grep (public void broadcastDamageEvent|public void broadcastEntityEvent|public boolean addFreshEntity|public .* explode\(|public boolean setBlock\(BlockPos|public .*DamageSources damageSources) server/level/ServerLevel.java world/level/Level.java
-grep (TrackedEntity\(|updateInterval|getEffectiveRange|clientTrackingRange|updateInterval\(\)) server/level/ChunkMap.java world/entity/EntityType.java
-grep (public static Optional<EntityType<\?>> byString|public @Nullable T create\(|public T create\() world/entity/EntityType.java
-outline world/entity/item/PrimedTnt.java
-grep (public void setNoAi|public boolean isNoAi) world/entity/Mob.java
-grep thunderHit\( world/entity/LightningBolt.java
-grep (public static ResolvableProfile|public ResolvableProfile\(|static ResolvableProfile create|record ResolvableProfile|class ResolvableProfile) world/item/component
-outline world/entity/Pose.java
-grep (Holder<Attribute> (SCALE|STEP_HEIGHT|JUMP_STRENGTH|MOVEMENT_SPEED|MAX_HEALTH|ENTITY_INTERACTION_RANGE|ATTACK_DAMAGE|ATTACK_KNOCKBACK|KNOCKBACK_RESISTANCE|ARMOR)) world/entity/ai/attributes/Attributes.java
-grep (public DamageSource (generic|mobAttack|playerAttack|explosion)\() world/damagesource/DamageSources.java
+# batch 3: actor runtime hooks
+grep server/level/ServerLevel.java void tickNonPassenger|void tickPassenger|entity\.tick\(\)|passenger\.rideTick\(\)
+grep world/entity boolean shouldBeSaved|boolean isIgnoringBlockTriggers|boolean canBeSeenAsEnemy|boolean isAttackable\(\)
+grep world/entity boolean isPickable\(\)
+grep world/entity boolean canBeCollidedWith\(
+grep world/entity boolean canHitEntity\(
+grep world/entity boolean isPushable\(\)
+grep world/entity/LivingEntity.java public void swing\(|public void setHealth|public final float getMaxHealth|public void setItemSlot|AttributeInstance getAttribute\(|void tickDeath|public boolean addEffect\(|public void setYBodyRot|public void setYHeadRot|public void setSprinting
+grep world/entity/Mob.java public void setNoAi|public void playAmbientSound|public void setItemSlot|public void setAggressive
+grep server/level/ServerLevel.java public void broadcastDamageEvent|public void broadcastEntityEvent|public boolean addFreshEntity|public .* explode\(|public DamageSources|public .*getEntity\(
+grep world/level/Level.java public boolean setBlock\(|public .* explode\(|public DamageSources damageSources
+grep world/entity/EntityType.java public static Optional<EntityType<\?>> byString|public @Nullable T create\(|public T create\(|int clientTrackingRange|EntityDimensions getDimensions
+grep world/item/component/ResolvableProfile.java public static|public ResolvableProfile|record ResolvableProfile|class ResolvableProfile|interface ResolvableProfile
+lines world/entity/Pose.java 11 34
+grep world/entity/ai/attributes/Attributes.java Holder<Attribute> (SCALE|STEP_HEIGHT|JUMP_STRENGTH|MOVEMENT_SPEED|MAX_HEALTH|ENTITY_INTERACTION_RANGE|ATTACK_DAMAGE|ATTACK_KNOCKBACK|KNOCKBACK_RESISTANCE|ARMOR) 
+grep world/damagesource/DamageSources.java public DamageSource (generic|mobAttack|playerAttack|explosion)\(
+method server/level/ServerLevel.java tickNonPassenger
+grep world/entity/EquipmentSlot.java ^\s+[A-Z_]+\(
+grep world/entity/EntitySpawnReason.java ^\s+[A-Z_]+[,;]
