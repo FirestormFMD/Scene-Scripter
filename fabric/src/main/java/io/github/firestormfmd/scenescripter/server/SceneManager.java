@@ -294,6 +294,21 @@ public final class SceneManager {
 		if (session != null) {
 			o.addProperty("name", session.name());
 			o.add("scene", SceneCodec.toJson(session.scene()));
+			com.google.gson.JsonArray results = new com.google.gson.JsonArray();
+			for (var r : session.attackResults()) {
+				JsonObject ro = new JsonObject();
+				ro.addProperty("event", r.eventId());
+				ro.addProperty("attacker", r.attackerId());
+				if (r.targetId() != null) {
+					ro.addProperty("target", r.targetId());
+				}
+				ro.addProperty("tick", r.tick());
+				ro.addProperty("hit", r.hit());
+				ro.addProperty("reason", r.reason());
+				ro.addProperty("damage", r.damage());
+				results.add(ro);
+			}
+			o.add("attacks", results);
 		}
 		return o.toString();
 	}

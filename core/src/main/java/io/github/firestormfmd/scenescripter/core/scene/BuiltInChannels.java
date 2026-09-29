@@ -14,6 +14,8 @@ import io.github.firestormfmd.scenescripter.core.math.Vec3;
 public final class BuiltInChannels {
 	/** Keyframed position, used when the object is not on a motion clip. */
 	public static final ChannelSpec<Vec3> POSITION = new ChannelSpec<>("position", ValueType.VEC3, Vec3.ZERO);
+	/** Added to the position from paths and keys. The solver writes knockback here; users can nudge objects with it. */
+	public static final ChannelSpec<Vec3> OFFSET = new ChannelSpec<>("offset", ValueType.VEC3, Vec3.ZERO);
 	public static final ChannelSpec<Double> BODY_YAW = new ChannelSpec<>("body_yaw", ValueType.FLOAT, 0.0);
 	public static final ChannelSpec<Double> HEAD_YAW = new ChannelSpec<>("head_yaw", ValueType.FLOAT, 0.0);
 	public static final ChannelSpec<Double> HEAD_PITCH = new ChannelSpec<>("head_pitch", ValueType.FLOAT, 0.0);
@@ -44,7 +46,7 @@ public final class BuiltInChannels {
 	private static final Map<String, ChannelSpec<?>> BY_NAME = new LinkedHashMap<>();
 
 	static {
-		for (ChannelSpec<?> spec : new ChannelSpec<?>[] {POSITION, BODY_YAW, HEAD_YAW, HEAD_PITCH, LOOK_AT, HEALTH, DEAD,
+		for (ChannelSpec<?> spec : new ChannelSpec<?>[] {POSITION, OFFSET, BODY_YAW, HEAD_YAW, HEAD_PITCH, LOOK_AT, HEALTH, DEAD,
 				POSE, SNEAKING, SPRINTING, ON_FIRE, GLOWING, INVISIBLE, SCALE, CUSTOM_NAME, NAME_VISIBLE, MAINHAND,
 				OFFHAND, HEAD, CHEST, LEGS, FEET, AMBIENT_SOUNDS, SILENT}) {
 			BY_NAME.put(spec.name(), spec);

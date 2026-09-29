@@ -14,6 +14,7 @@ import io.github.firestormfmd.scenescripter.core.runtime.EventWindow;
 import io.github.firestormfmd.scenescripter.core.runtime.PlaybackClock;
 import io.github.firestormfmd.scenescripter.core.runtime.SceneEvaluator;
 import io.github.firestormfmd.scenescripter.core.scene.Scene;
+import io.github.firestormfmd.scenescripter.core.solve.Solver;
 
 /**
  * An open scene on the server: its data, undo history, playhead, block journal and actors.
@@ -28,6 +29,8 @@ public final class SceneSession {
 	private final WorldBlocks blocks;
 	private final ActorController actors;
 	private final EventPlayer events;
+	private final Solver solver;
+	private List<Solver.AttackResult> attackResults = List.of();
 	private long appliedRevision = -1;
 	private long savedRevision;
 	private boolean actorListChanged = true;
@@ -44,6 +47,7 @@ public final class SceneSession {
 		this.blocks = new WorldBlocks(level);
 		this.actors = new ActorController(level);
 		this.events = new EventPlayer(this);
+		this.solver = new Solver(new WorldCombat(level));
 		this.savedRevision = history.revision();
 		Actors.setTrackingRange(scene.settings().trackingRange());
 	}
@@ -84,6 +88,11 @@ public final class SceneSession {
 		return blocks;
 	}
 
+	/** Hit or miss of every attack, for the editor to draw. */
+	public List<Solver.AttackResult> attackResults() {
+		return attackResults;
+	}
+
 	public boolean isDirty() {
 		return history.revision() != savedRevision;
 	}
@@ -120,6 +129,7 @@ public final class SceneSession {
 	private void refreshAfterEdit() {
 		appliedRevision = history.revision();
 		evaluator.setTerrain(new LevelTerrain(level(), scene.settings().groundFilter()));
+		attackResults = solver.solve(scene, evaluator);
 		clock.setLength(scene.length());
 		Actors.setTrackingRange(scene.settings().trackingRange());
 		journal.setChangeSets(bakedBlockChanges(), blocks);

@@ -33,6 +33,12 @@ public final class ClientScene {
 	private static final Map<String, Integer> actorIds = new HashMap<>();
 	private static final Map<Integer, String> actorsByEntity = new HashMap<>();
 	private static List<String> sceneList = List.of();
+	private static List<AttackLine> attacks = List.of();
+
+	/** How one attack resolved, for drawing hit and miss lines. */
+	public record AttackLine(String eventId, String attacker, @Nullable String target, int tick, boolean hit,
+			String reason, double damage) {
+	}
 	private static final Chunks.Assembler ASSEMBLER = new Chunks.Assembler();
 
 	private ClientScene() {
@@ -57,6 +63,10 @@ public final class ClientScene {
 
 	public static int tick() {
 		return state.tick();
+	}
+
+	public static List<AttackLine> attacks() {
+		return attacks;
 	}
 
 	public static List<String> sceneList() {
@@ -86,7 +96,18 @@ public final class ClientScene {
 			if (!o.has("scene")) {
 				name = null;
 				scene = null;
+				attacks = List.of();
 			} else {
+				java.util.List<AttackLine> lines = new java.util.ArrayList<>();
+				if (o.has("attacks")) {
+					for (var el : o.getAsJsonArray("attacks")) {
+						JsonObject a = el.getAsJsonObject();
+						lines.add(new AttackLine(a.get("event").getAsString(), a.get("attacker").getAsString(),
+								a.has("target") ? a.get("target").getAsString() : null, a.get("tick").getAsInt(),
+								a.get("hit").getAsBoolean(), a.get("reason").getAsString(), a.get("damage").getAsDouble()));
+					}
+				}
+				attacks = List.copyOf(lines);
 				try {
 					scene = SceneCodec.fromJson(o.getAsJsonObject("scene"));
 					name = o.get("name").getAsString();

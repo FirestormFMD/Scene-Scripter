@@ -43,6 +43,7 @@ public final class EditorOverlay implements DebugRenderer.SimpleDebugRenderer {
 	private static final int PATH_SELECTED = 0xFFFFD84C;
 	private static final int PROBLEM = 0xFFFF4040;
 	private static final int DRAFT = 0xFF7CFF7C;
+	private static final int HIT = 0xFF5ADB7A;
 
 	private long cachedVersion = -1;
 	private final Map<String, Locomotion> previews = new HashMap<>();
@@ -80,6 +81,31 @@ public final class EditorOverlay implements DebugRenderer.SimpleDebugRenderer {
 
 		for (MotionPath path : scene.paths()) {
 			drawPath(mc, scene, path);
+		}
+
+		int tick = ClientScene.tick();
+		for (ClientScene.AttackLine attack : ClientScene.attacks()) {
+			if (attack.target() == null || Math.abs(attack.tick() - tick) > 20) {
+				continue;
+			}
+			boolean related = attack.attacker().equals(EditorState.selectedObject) || attack.target().equals(EditorState.selectedObject);
+			if (!related) {
+				continue;
+			}
+			Entity from = ClientScene.actor(attack.attacker()).orElse(null);
+			Entity to = ClientScene.actor(attack.target()).orElse(null);
+			if (from == null || to == null) {
+				continue;
+			}
+			Vec3 a = from.getEyePosition(partialTicks);
+			Vec3 b = to.getPosition(partialTicks).add(0, to.getBbHeight() / 2, 0);
+			int color = attack.hit() ? HIT : PROBLEM;
+			Gizmos.arrow(a, b, color, attack.hit() ? 2.5f : 1.5f);
+			String label = attack.hit()
+					? String.format(java.util.Locale.ROOT, "hit @%d: %.1f", attack.tick(), attack.damage())
+					: "miss @" + attack.tick() + ": " + attack.reason();
+			Gizmos.billboardText(label, a.add(b).scale(0.5).add(0, 0.4, 0),
+					net.minecraft.gizmos.TextGizmo.Style.forColorAndCentered(color));
 		}
 
 		if (EditorState.dragPreview != null) {

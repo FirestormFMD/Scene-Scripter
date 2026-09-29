@@ -134,6 +134,8 @@ public final class SceneEvaluator {
 			bodyYaw = anchoredYaw(o, clips, tick);
 		}
 
+		position = position.add(value(o, BuiltInChannels.OFFSET, tick));
+
 		float headYaw = bodyYaw + (float) (double) value(o, BuiltInChannels.HEAD_YAW, tick);
 		float headPitch = (float) (double) value(o, BuiltInChannels.HEAD_PITCH, tick);
 		String lookAt = value(o, BuiltInChannels.LOOK_AT, tick);
