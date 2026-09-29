@@ -1,6 +1,6 @@
 # Scene Scripter: Project Plan
 
-> Status: Phases 0 to 6 implemented (see section 1b). A manual recording check with Flashback, the 26.3 port (waiting for Replay Mod) and publishing the prepared 1.0 release remain.
+> Status: Phases 0 to 6 implemented (see section 1b). A manual recording check with Flashback for each release, the 26.3 port (waiting for Replay Mod) and publishing the prepared 1.0 release remain.
 > Target: Fabric, Minecraft 26.2, singleplayer first.
 
 Scene Scripter is an in-game animation tool for Minecraft cinematics. You stage mobs, players, TNT and other entities, then animate them on a timeline so they walk, jump, fight, explode and die on cue. It covers shots that would otherwise need hand animation in Blender or Maya, or dozens of real players acting in sync.
@@ -37,7 +37,7 @@ What is built, how it is checked, and what is still open. Unit tests cover the c
 
 **Open items**
 
-- **Recording fidelity (Phase 0 spike 3).** CI runs the client game tests beside the 26.2 builds of Flashback (0.43.6) and Replay Mod (2.6.27): the editor, Mannequins and a played tutorial scene work with either installed, Replay Mod records the scene, and the recording plays back in Replay Mod's viewer with the scene's actors in it. Two checks stay manual for each release: recording with Flashback (it has no automatic recording a test can drive) and opening a recording in a game without Scene Scripter. Actors only use vanilla packets, which is what makes the second one work.
+- **Recording fidelity (Phase 0 spike 3).** CI runs the client game tests beside the 26.2 builds of Flashback (0.43.6) and Replay Mod (2.6.27): the editor, Mannequins and a played tutorial scene work with either installed, Replay Mod records the scene, and the recording plays back in Replay Mod's viewer with the scene's actors in it. A second job plays those recordings back in a game with Fabric API and Replay Mod but without Scene Scripter (the `replay-check` project), and checks the actors appear there too. What stays manual for each release is recording with Flashback, which has no automatic recording a test can drive.
 - **Mannequin audit: done.** A client game test poses Mannequins drawing a bow, eating, raising a shield and sleeping and checks each state on the client; the screenshot was reviewed. It found that actors' equipment changes never reached clients (actors don't tick, so vanilla never sent them), which is fixed. The fake-`ServerPlayer` fallback has not been needed.
 - **Overlay screenshots (section 10):** the editor test compares the panels against a reviewed reference fingerprint on every run and checks that the F1 list draws; the Mannequin and Replay Mod tests print small screenshots to the log for review.
 - **Scrub overrides (5.7)** cover death tilt, hurt flash, arm swing and creeper swelling; walk-cycle phase and body-turn lag are left to vanilla.

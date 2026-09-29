@@ -15,3 +15,5 @@ rootProject.name = 'scene-scripter'
 include 'core'
 // The Fabric mod itself. Depends on core.
 include 'fabric'
+// Test only: a client without Scene Scripter that plays scene recordings back in Replay Mod.
+include 'replay-check'

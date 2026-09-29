@@ -66,3 +66,45 @@ jobs:
             fabric/build/run/**/screenshots/
             fabric/build/run/**/logs/
             fabric/build/run/**/crash-reports/
+      - name: keep the replay mod recordings
+        if: matrix.recorder == 'replaymod'
+        uses: actions/upload-artifact@v7
+        with:
+          name: scene-recordings
+          path: fabric/build/run/**/replay_recordings/**/*.mcpr
+          if-no-files-found: error
+
+  # Plays the recordings Replay Mod made of the scenes back in a game without Scene Scripter.
+  replay_without_scene_scripter:
+    needs: client_game_test
+    runs-on: ubuntu-24.04
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+      - name: setup jdk
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'microsoft'
+      - name: install xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
+      - name: fetch the recordings
+        uses: actions/download-artifact@v7
+        with:
+          name: scene-recordings
+          path: recordings
+      - name: play them back without scene scripter
+        env:
+          SCENE_RECORDINGS: ${{ github.workspace }}/recordings
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew :replay-check:runClientGameTest
+      - name: capture screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: replay-without-scene-scripter
+          path: |
+            replay-check/build/run/**/screenshots/
+            replay-check/build/run/**/logs/
+            replay-check/build/run/**/crash-reports/

@@ -1,0 +1,18 @@
+{
+	"schemaVersion": 1,
+	"id": "replaycheck",
+	"version": "1.0.0",
+	"name": "Scene Scripter replay check",
+	"description": "Test only: plays a scene recording back in Replay Mod without Scene Scripter installed.",
+	"license": "MIT",
+	"environment": "client",
+	"entrypoints": {
+		"fabric-client-gametest": [
+			"io.github.firestormfmd.replaycheck.ReplayWithoutSceneScripter"
+		]
+	},
+	"depends": {
+		"fabricloader": "*",
+		"fabric-api": "*"
+	}
+}
