@@ -129,4 +129,75 @@ class CrowdAndTracksTest {
 		assertEquals(scene.objects().size(), back.objects().size());
 		assertEquals(2, back.tracks().events().size());
 	}
+
+	@Test
+	void groupsMoveAndRetimeTogether() {
+		SceneObject o = new SceneObject("o1", "A", "minecraft:zombie");
+		o.channel(BuiltInChannels.POSITION).put(Keyframe.of(10, new Vec3(1, 64, 1)));
+		o.addEvent(new SceneEvent("e1", 30, "attack", null, Map.of(), null));
+		o.addMotion(MotionClip.fitted("p1", 40, 80));
+		o.setLifetime(5, 100);
+		SceneTransform.retimeObject(o, 20);
+		assertEquals(30, o.channel(BuiltInChannels.POSITION).keys().getFirst().tick());
+		assertEquals(50, o.findEvent("e1").get().tick());
+		assertEquals(60, o.motion().getFirst().startTick());
+		assertEquals(100, o.motion().getFirst().endTick());
+		assertEquals(25, o.spawnTick());
+		assertEquals(120, o.despawnTick());
+		SceneTransform.moveObject(o, new Vec3(2, 0, -3));
+		assertEquals(new Vec3(3, 64, -2), o.channel(BuiltInChannels.POSITION).keys().getFirst().value());
+	}
+
+	@Test
+	void crowdSpeedsVary() {
+		SceneObject leader = new SceneObject("o1", "S", "minecraft:zombie");
+		leader.addMotion(MotionClip.atSpeed("p1", 0));
+		var crowd = io.github.firestormfmd.scenescripter.core.crowd.CrowdBuilder.build(leader,
+				io.github.firestormfmd.scenescripter.core.crowd.Formation.LINE, 6, 1.5, i -> "c" + i, 0, 0, 0.1, 3);
+		assertTrue(crowd.stream().map(m -> m.motion().getFirst().speedScale()).distinct().count() > 1);
+		assertTrue(crowd.stream().allMatch(m -> Math.abs(m.motion().getFirst().speedScale() - 1) <= 0.1 + 1e-9));
+	}
+
+	@Test
+	void eventConditionsReadVariables() {
+		Scene scene = new Scene("s", 100);
+		SceneObject o = new SceneObject("o1", "A", "minecraft:zombie");
+		var lives = new io.github.firestormfmd.scenescripter.core.anim.Channel<>(
+				io.github.firestormfmd.scenescripter.core.anim.ValueType.INT, 3);
+		lives.put(Keyframe.of(0, 3, Interpolation.STEP));
+		lives.put(Keyframe.of(50, 0, Interpolation.STEP));
+		o.putChannel("lives", lives);
+		scene.addObject(o);
+		scene.tracks().putChannel("alarm", new io.github.firestormfmd.scenescripter.core.anim.Channel<>(
+				io.github.firestormfmd.scenescripter.core.anim.ValueType.BOOL, true));
+		assertTrue(EventCondition.holds("lives <= 0", o, scene, 60));
+		assertTrue(!EventCondition.holds("lives <= 0", o, scene, 40));
+		assertTrue(EventCondition.holds("lives > 2", o, scene, 10));
+		assertTrue(EventCondition.holds("scene.alarm == true", o, scene, 10));
+		assertTrue(!EventCondition.holds("scene.alarm != true", o, scene, 10));
+		assertTrue(EventCondition.holds("", o, scene, 10));
+		assertTrue(EventCondition.holds("nonsense", o, scene, 10), "unreadable conditions let the event happen");
+		assertTrue(EventCondition.holds("health >= 20", o, scene, 10), "built-in channels fall back to their default");
+	}
+
+	@Test
+	void conditionalAttacksOnlyLandWhenTheyHold() {
+		Scene scene = new Scene("s", 200);
+		SceneObject a = new SceneObject("a", "A", "minecraft:mannequin");
+		a.channel(BuiltInChannels.POSITION).setDefaultValue(new Vec3(0, 64, 0));
+		SceneObject b = new SceneObject("b", "B", "minecraft:zombie");
+		b.channel(BuiltInChannels.POSITION).setDefaultValue(new Vec3(0, 64, 2));
+		scene.addObject(a);
+		scene.addObject(b);
+		a.addEvent(new SceneEvent("e1", 20, "attack", "b", Map.of("if", "scene.fight == true"), null));
+		SceneEvaluator eval = new SceneEvaluator(scene, null, BodyProvider.PLAYER_SIZED);
+		var solver = new io.github.firestormfmd.scenescripter.core.solve.Solver(
+				io.github.firestormfmd.scenescripter.core.solve.CombatModel.DEFAULT);
+		scene.tracks().putChannel("fight", new io.github.firestormfmd.scenescripter.core.anim.Channel<>(
+				io.github.firestormfmd.scenescripter.core.anim.ValueType.BOOL, false));
+		assertTrue(solver.solve(scene, eval).isEmpty(), "the attack is skipped while the condition fails");
+		scene.tracks().putChannel("fight", new io.github.firestormfmd.scenescripter.core.anim.Channel<>(
+				io.github.firestormfmd.scenescripter.core.anim.ValueType.BOOL, true));
+		assertTrue(solver.solve(scene, eval).getFirst().hit());
+	}
 }

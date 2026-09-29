@@ -30,6 +30,15 @@ public final class CrowdBuilder {
 	 */
 	public static List<SceneObject> build(SceneObject leader, Formation formation, int count, double spacing,
 			IntFunction<String> ids, double ticksPerBlockBack, int jitterTicks, long seed) {
+		return build(leader, formation, count, spacing, ids, ticksPerBlockBack, jitterTicks, 0, seed);
+	}
+
+	/**
+	 * @param speedVariation how much each member's walking speed may differ from the leader's, as a fraction (0.1
+	 *                       is up to 10% faster or slower)
+	 */
+	public static List<SceneObject> build(SceneObject leader, Formation formation, int count, double spacing,
+			IntFunction<String> ids, double ticksPerBlockBack, int jitterTicks, double speedVariation, long seed) {
 		List<Vec3> offsets = formation.offsets(count + 1, spacing, seed);
 		// The member nearest the leader's own place is the leader.
 		int leaderIndex = 0;
@@ -63,8 +72,8 @@ public final class CrowdBuilder {
 					+ (jitterTicks > 0 ? random.nextInt(jitterTicks + 1) : 0);
 			for (MotionClip c : List.copyOf(m.motion())) {
 				m.removeMotion(c);
-				m.addMotion(new MotionClip(c.pathId(), c.startTick() + delay, c.timing(),
-						c.endTick() < 0 ? c.endTick() : c.endTick() + delay, c.lateralOffset() + local.x()));
+				m.addMotion(c.shifted(delay).withLateralOffset(c.lateralOffset() + local.x())
+						.withSpeedScale(c.speedScale() * (1 + (random.nextDouble() * 2 - 1) * speedVariation)));
 			}
 			for (SceneEvent e : List.copyOf(m.events())) {
 				m.removeEvent(e.id());

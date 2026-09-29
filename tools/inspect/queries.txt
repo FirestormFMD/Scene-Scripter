@@ -1,7 +1,3 @@
-# batch 10
-grep world/entity/monster/Creeper.java private int oldSwell|private int swell|private int maxSwell
-grep world/entity/LivingEntity.java public int hurtTime|public int hurtDuration|public float attackAnim|public int deathTime
-find ResolvableProfile.java
-find PlayerSkin.java
-grep world/item/component/ResolvableProfile.java public static|record|public ResolvableProfile|skinPatch|Partial
-grep world/entity/player/PlayerSkin.java record Patch|public static Patch|public record|ResourceTexture|create
+# batch 11
+grep world/entity/monster/Creeper.java EntityDataAccessor
+grep world/entity/EntityEvent.java public static final byte

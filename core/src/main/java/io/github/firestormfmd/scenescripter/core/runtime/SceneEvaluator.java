@@ -47,6 +47,8 @@ public final class SceneEvaluator {
 	private final Scene scene;
 	private final BodyProvider bodies;
 	private TerrainView terrain;
+	/** Terrain as it is at a tick, when the scene changes blocks; overrides {@link #terrain} for ground paths. */
+	private java.util.function.IntFunction<TerrainView> terrainAt;
 	private final Map<String, List<Locomotion>> locomotion = new HashMap<>();
 
 	/**
@@ -64,6 +66,17 @@ public final class SceneEvaluator {
 
 	public void setTerrain(TerrainView terrain) {
 		this.terrain = terrain;
+		this.terrainAt = null;
+		invalidate();
+	}
+
+	/**
+	 * Plans each motion clip on the terrain as it is when the clip starts, so a path laid after an explosion
+	 * follows the crater. {@code base} is still used when there is no clip start to go by.
+	 */
+	public void setTerrain(TerrainView base, java.util.function.IntFunction<TerrainView> atTick) {
+		this.terrain = base;
+		this.terrainAt = atTick;
 		invalidate();
 	}
 
@@ -94,10 +107,11 @@ public final class SceneEvaluator {
 		if (path.isEmpty() || path.get().points().isEmpty()) {
 			return Optional.empty();
 		}
-		if (path.get().kind() == PathKind.GROUND && terrain == null) {
+		TerrainView view = terrainAt != null ? terrainAt.apply(clip.startTick()) : terrain;
+		if (path.get().kind() == PathKind.GROUND && view == null) {
 			return Optional.empty();
 		}
-		return Optional.of(LocomotionPlanner.plan(path.get(), clip, body, terrain, scene.settings().groundFilter()));
+		return Optional.of(LocomotionPlanner.plan(path.get(), clip, body, view, scene.settings().groundFilter()));
 	}
 
 	public Optional<ObjectState> evaluate(String objectId, int tick) {

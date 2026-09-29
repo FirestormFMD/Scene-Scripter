@@ -105,12 +105,12 @@ public final class Solver {
 		for (SceneObject o : List.copyOf(scene.objects())) {
 			for (SceneEvent e : o.events()) {
 				switch (e.type()) {
-					case "place_block", "break_block", "use_block" -> schedule(e.tick(), 0, () -> blockEvent(o, e));
-					case "attack" -> schedule(e.tick(), 1, () -> attacks.add(attack(o, e, rulesFor(scene, o, e))));
-					case "hurt" -> schedule(e.tick(), 1, () -> manualHurt(o, e, rulesFor(scene, o, e)));
-					case "shoot" -> schedule(e.tick(), 1, () -> shoot(o, e));
-					case "ignite" -> schedule(e.tick(), 2, () -> ignite(o, e));
-					case "explode" -> schedule(e.tick(), 3, () -> explode(o, e.id(), e, e.tick(), null));
+					case "place_block", "break_block", "use_block" -> scheduleIf(o, e, 0, () -> blockEvent(o, e));
+					case "attack" -> scheduleIf(o, e, 1, () -> attacks.add(attack(o, e, rulesFor(scene, o, e))));
+					case "hurt" -> scheduleIf(o, e, 1, () -> manualHurt(o, e, rulesFor(scene, o, e)));
+					case "shoot" -> scheduleIf(o, e, 1, () -> shoot(o, e));
+					case "ignite" -> scheduleIf(o, e, 2, () -> ignite(o, e));
+					case "explode" -> scheduleIf(o, e, 3, () -> explode(o, e.id(), e, e.tick(), null));
 					default -> {
 					}
 				}
@@ -126,6 +126,18 @@ public final class Solver {
 		}
 		attacks.sort(Comparator.comparingInt(AttackResult::tick));
 		return new Solution(List.copyOf(attacks), List.copyOf(explosions));
+	}
+
+	/**
+	 * Schedules an event unless its {@code if} condition fails. The condition is checked when the event's turn
+	 * comes, so it sees what earlier events did, such as health lost to an earlier hit.
+	 */
+	private void scheduleIf(SceneObject owner, SceneEvent e, int priority, Runnable run) {
+		schedule(e.tick(), priority, () -> {
+			if (io.github.firestormfmd.scenescripter.core.scene.EventCondition.holds(e, owner, scene)) {
+				run.run();
+			}
+		});
 	}
 
 	private void schedule(int tick, int priority, Runnable run) {

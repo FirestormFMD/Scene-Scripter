@@ -198,6 +198,7 @@ public final class SceneCodec {
 			co.addProperty("timing", c.timing().id());
 			if (c.timing() == TimingMode.FIT) co.addProperty("end", c.endTick());
 			if (c.lateralOffset() != 0) co.addProperty("offset", c.lateralOffset());
+			if (c.speedScale() != 1) co.addProperty("speedScale", c.speedScale());
 			motion.add(co);
 		}
 		o.add("motion", motion);
@@ -476,7 +477,8 @@ public final class SceneCodec {
 			TimingMode timing = TimingMode.byId(str(co, "timing"));
 			obj.addMotion(new MotionClip(str(co, "path"), req(co, "start").getAsInt(), timing,
 					timing == TimingMode.FIT ? req(co, "end").getAsInt() : -1,
-					co.has("offset") ? co.get("offset").getAsDouble() : 0));
+					co.has("offset") ? co.get("offset").getAsDouble() : 0,
+					co.has("speedScale") ? co.get("speedScale").getAsDouble() : 1.0));
 		}
 		if (o.has("channels")) {
 			for (Map.Entry<String, JsonElement> e : o.getAsJsonObject("channels").entrySet()) {

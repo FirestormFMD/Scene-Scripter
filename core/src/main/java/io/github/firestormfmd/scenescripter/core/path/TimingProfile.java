@@ -72,7 +72,7 @@ public final class TimingProfile {
 				this.fitFailed = false;
 			}
 		} else {
-			this.scale = 1;
+			this.scale = 1 / clip.speedScale();
 			this.fitFailed = false;
 		}
 		this.duration = moving * scale + totalWait;
