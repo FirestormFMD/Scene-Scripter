@@ -40,7 +40,21 @@ public class ReplayWithoutSceneScripter implements FabricClientGameTest {
 		Path replay = recordings.stream().max(java.util.Comparator.comparingLong(ReplayWithoutSceneScripter::size)).orElseThrow();
 		System.out.println("Playing " + replay.getFileName() + " (" + size(replay) + " bytes) without Scene Scripter");
 		context.runOnClient(client -> replayMod("startReplay", replay.toFile()));
-		context.waitFor(client -> client.level != null && actors(client) > 0, 20 * 60);
+		// Replay Mod may stop on a screen first (such as a note about mods the recording was made with); log what
+		// is open while waiting, and show it if the replay never starts.
+		boolean started = false;
+		for (int wait = 0; wait < 12 && !started; wait++) {
+			context.waitTicks(100);
+			started = context.computeOnClient(client -> client.level != null && actors(client) > 0);
+			String screen = context.computeOnClient(client -> client.gui.screen() == null ? "none"
+					: client.gui.screen().getClass().getName() + " \"" + client.gui.screen().getTitle().getString() + "\"");
+			System.out.println("Replay after " + (wait + 1) * 5 + " s: level " + context.computeOnClient(client -> client.level != null)
+					+ ", screen " + screen);
+		}
+		if (!started) {
+			printThumbnail(context.takeScreenshot("replay-without-scene-scripter-stuck"));
+			throw new AssertionError("The recording did not start playing without Scene Scripter");
+		}
 		context.waitTicks(40);
 		int actors = context.computeOnClient(ReplayWithoutSceneScripter::actors);
 		System.out.println("The recording played back without Scene Scripter with " + actors + " scene actors in view");
@@ -56,6 +70,25 @@ public class ReplayWithoutSceneScripter implements FabricClientGameTest {
 			}
 		});
 		context.waitFor(client -> client.level == null, 20 * 30);
+	}
+
+	/** A small JPEG of a screenshot, printed to the log as base64 lines, to look at from CI. */
+	private static void printThumbnail(Path png) {
+		try {
+			java.awt.image.BufferedImage full = javax.imageio.ImageIO.read(png.toFile());
+			java.awt.image.BufferedImage small = new java.awt.image.BufferedImage(256, 144, java.awt.image.BufferedImage.TYPE_INT_RGB);
+			var g = small.createGraphics();
+			g.drawImage(full, 0, 0, 256, 144, null);
+			g.dispose();
+			java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+			javax.imageio.ImageIO.write(small, "jpg", bytes);
+			String text = java.util.Base64.getEncoder().encodeToString(bytes.toByteArray());
+			for (int i = 0; i < text.length(); i += 2000) {
+				System.out.println("THUMB stuck " + i / 2000 + " " + text.substring(i, Math.min(text.length(), i + 2000)));
+			}
+		} catch (IOException e) {
+			System.out.println("Could not print the screenshot: " + e);
+		}
 	}
 
 	private static Object replayMod(String method, java.io.File file) {
