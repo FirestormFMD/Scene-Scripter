@@ -8,7 +8,14 @@
 		"FirestormFMD"
 	],
 	"contact": {
-		"sources": "https://github.com/FirestormFMD/Scene-Scripter"
+		"homepage": "https://github.com/FirestormFMD/Scene-Scripter",
+		"sources": "https://github.com/FirestormFMD/Scene-Scripter",
+		"issues": "https://github.com/FirestormFMD/Scene-Scripter/issues"
+	},
+	"icon": "assets/scenescripter/icon.png",
+	"suggests": {
+		"flashback": "*",
+		"replaymod": "*"
 	},
 	"license": "MIT",
 	"environment": "*",

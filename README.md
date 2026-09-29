@@ -38,3 +38,7 @@ Requires Java 25.
 ```
 
 The mod jar is written to `fabric/build/libs/`.
+
+## Releasing
+
+Pushing a version tag such as `v1.0.0` runs `.github/workflows/release.yml`: it builds and tests the mod, creates a GitHub release with the jar and the matching section of [CHANGELOG.md](CHANGELOG.md), and uploads the jar to Modrinth. The Modrinth upload needs, once, a Modrinth project for the mod, a `MODRINTH_TOKEN` repository secret (a Modrinth personal access token that can create versions) and a `MODRINTH_PROJECT_ID` repository variable; without them it is skipped.
