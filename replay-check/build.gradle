@@ -33,11 +33,9 @@ dependencies {
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 	// Flashback 0.43.6 or Replay Mod 2.6.27 for Minecraft 26.2, by Modrinth version ID.
+	// The property is shared with the fabric project's client game tests, where "none" is also used.
 	def recorders = [flashback: 'Um7qd3Na', replaymod: '5YS1OgDP']
-	def recorder = project.findProperty('recorder') ?: 'replaymod'
-	if (!recorders.containsKey(recorder)) {
-		throw new GradleException("Unknown recorder ${recorder}; use flashback or replaymod")
-	}
+	def recorder = recorders.containsKey(project.findProperty('recorder')) ? project.findProperty('recorder') : 'replaymod'
 	localRuntime "maven.modrinth:${recorder}:${recorders[recorder]}"
 }
 
