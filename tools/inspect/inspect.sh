@@ -3,6 +3,7 @@
 # Used by .github/workflows/inspect-sources.yml so the game code can be read from environments that
 # cannot download Minecraft. Query lines:
 #   find <name-glob>            list source files whose name matches
+#   findall <name-glob>         the same across every package (paths outside net/minecraft start with ../../)
 #   outline <path>              declarations (classes, fields, methods) with line numbers
 #   lines <path> <from> <to>    a range of lines
 #   method <path> <name>        body of every method with that name
@@ -18,6 +19,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 	echo "=================== $line"
 	case "$cmd" in
 		find) (cd "$SRC" && find . -name "$a" | sed 's#^\./##' | head -50) ;;
+		findall) (cd "$SRC/../.." && find . -name "$a" | sed 's#^\./#../../#' | head -50) ;;
 		outline) grep -nE '^\s*(public|protected|private|static|abstract|final|default|record|enum|class|interface|sealed|@Nullable)[^=;]*[({;]' "$SRC/$a" | grep -vE '^\s*[0-9]+:\s*(return|if|else|for|while)\b' | head -400 || true ;;
 		lines) sed -n "${b},${c}p" "$SRC/$a" | nl -ba -v "$b" ;;
 		method) awk -v name="$b" 'index($0, name "(") && /^\t(public|protected|private|static|final|abstract|@)/ {p=1; depth=0} p {print NR": "$0; depth+=gsub(/\{/,"{"); depth-=gsub(/\}/,"}"); if (depth<=0 && /\}/) {p=0}}' "$SRC/$a" | head -120 ;;
