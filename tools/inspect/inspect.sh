@@ -8,6 +8,7 @@
 #   method <path> <name>        body of every method with that name
 #   grep <path> <regex>         matching lines under a file or directory (first 150); the regex is the rest of the line
 #   modrinth <project>          the project's latest Fabric versions with their game versions, from the Modrinth API
+#   minecraft <version> <api>   read that Minecraft version's sources instead (the workflow reads this line)
 set -euo pipefail
 SRC="$1"
 QUERIES="$2"
@@ -23,6 +24,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 		grep) (cd "$SRC" && grep -rnE -- "${line#grep $a }" "$a" | head -150) || true ;;
 		modrinth) curl -fsS "https://api.modrinth.com/v2/project/$a/version?loaders=%5B%22fabric%22%5D" \
 				| jq -r '.[:12][] | "\(.date_published[:10])  \(.version_number)  \(.game_versions | join(","))  \(.files[0].url)"' || echo "request failed" ;;
+		minecraft) echo "sources of Minecraft $a" ;;
 		*) echo "unknown query" ;;
 	esac
 done <"$QUERIES"

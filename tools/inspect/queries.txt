@@ -1,2 +1,10 @@
-# batch 18: Fabric API and Flashback builds for 26.3
-modrinth fabric-api
+# batch 19: what changed in 26.3 for the port
+minecraft 26.3 0.161.0+26.3
+find EnderMan*.java
+find SwingAnimation*.java
+find *Swing*Packet*.java
+find ServerClockManager.java
+grep world/entity/Entity.java nvulnerable
+grep world/entity/LivingEntity.java (void swing\(|SwingAnimation)
+grep server/network/ServerGamePacketListenerImpl.java (handleAnimate|[Ss]wing)
+grep server/level/ServerLevel.java clockManager
