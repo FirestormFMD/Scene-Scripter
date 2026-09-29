@@ -1,5 +1,3 @@
-# batch 16
+# batch 17: are there 26.3 builds of the recorders yet?
 modrinth flashback
 modrinth replaymod
-grep world/entity/LivingEntity.java (protected|public) void (dropAllDeathLoot|dropEquipment|dropCustomDeathLoot|dropFromLootTable)\(
-grep world/entity/LivingEntity.java public (Optional<ResourceKey<LootTable>>|ResourceKey<LootTable>) getLootTable\(
