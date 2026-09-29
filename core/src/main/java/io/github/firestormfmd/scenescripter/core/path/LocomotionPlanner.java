@@ -36,6 +36,8 @@ public final class LocomotionPlanner {
 	private final MotionClip clip;
 	private final BodySettings body;
 	private final GroundProbe probe;
+	/** Set when the terrain changes over time, so each probe sees the blocks as they are at its tick. */
+	private final TerrainTimeline timeline;
 	private final PathGeometry geometry;
 	private final TimingProfile timing;
 	private final int ticks;
@@ -50,6 +52,7 @@ public final class LocomotionPlanner {
 		this.clip = clip;
 		this.body = path.jumpHeight() != null ? body.withJumpHeight(path.jumpHeight()) : body;
 		this.probe = terrain == null ? null : new GroundProbe(terrain, filter, this.body);
+		this.timeline = terrain instanceof TerrainTimeline t ? t : null;
 		this.geometry = PathGeometry.of(path, clip.lateralOffset());
 		this.timing = new TimingProfile(path, clip, geometry.length());
 		this.ticks = clip.timing() == TimingMode.FIT
@@ -205,6 +208,9 @@ public final class LocomotionPlanner {
 		ground = new GroundProbe.Hit[total];
 		double nearY = geometry.pointAt(0).y();
 		for (int i = 0; i < total; i++) {
+			if (timeline != null) {
+				timeline.setTick(clip.startTick() + i);
+			}
 			Vec3 p = geometry.pointAt(distance[i]);
 			GroundProbe.Hit hit = probe.groundAt(p.x(), p.z(), nearY);
 			if (!hit.found() && i == 0) {

@@ -71,8 +71,9 @@ public final class SceneEvaluator {
 	}
 
 	/**
-	 * Plans each motion clip on the terrain as it is when the clip starts, so a path laid after an explosion
-	 * follows the crater. {@code base} is still used when there is no clip start to go by.
+	 * Plans motion clips on terrain that changes over time: each tick of a clip sees the blocks as they are then, so
+	 * a path follows a crater whether the blast went off before the clip started or while the object walks.
+	 * {@code base} is used where there is no clip to go by.
 	 */
 	public void setTerrain(TerrainView base, java.util.function.IntFunction<TerrainView> atTick) {
 		this.terrain = base;
@@ -107,7 +108,8 @@ public final class SceneEvaluator {
 		if (path.isEmpty() || path.get().points().isEmpty()) {
 			return Optional.empty();
 		}
-		TerrainView view = terrainAt != null ? terrainAt.apply(clip.startTick()) : terrain;
+		TerrainView view = terrainAt != null
+				? new io.github.firestormfmd.scenescripter.core.path.TerrainTimeline(terrainAt, clip.startTick()) : terrain;
 		if (path.get().kind() == PathKind.GROUND && view == null) {
 			return Optional.empty();
 		}

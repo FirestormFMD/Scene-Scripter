@@ -94,6 +94,24 @@ class LocomotionPlannerTest {
 	}
 
 	@Test
+	void aHoleOpeningMidWalkIsFallenInto() {
+		VoxelTerrain before = VoxelTerrain.floor();
+		VoxelTerrain after = new VoxelTerrain()
+				.fill(-5, 63, -2, 4, 63, 2, Block.STONE)
+				.fill(9, 63, -2, 30, 63, 2, Block.STONE)
+				.fill(5, 59, -2, 8, 59, 2, Block.STONE); // a crater 4 deep from x = 5 to 8
+		MotionPath path = straight(0.5, 12.5);
+		TerrainTimeline timeline = new TerrainTimeline(tick -> tick < 10 ? before : after, 0);
+		Locomotion loco = LocomotionPlanner.plan(path, MotionClip.atSpeed(path.id(), 0), BodySettings.PLAYER, timeline, FILTER);
+		double lowest = loco.samples().stream().mapToDouble(s -> s.pos().y()).min().orElseThrow();
+		assertEquals(60.0, lowest, 1e-9, "falls to the crater floor");
+
+		Locomotion planned = plan(path, before);
+		assertEquals(64.0, planned.samples().stream().mapToDouble(s -> s.pos().y()).min().orElseThrow(), 1e-9,
+				"without the blast the walk stays level");
+	}
+
+	@Test
 	void longDropsAreFlaggedOnlyWhenAsked() {
 		VoxelTerrain t = new VoxelTerrain()
 				.fill(-5, 66, -2, 4, 66, 2, Block.STONE) // ledge, top at 67

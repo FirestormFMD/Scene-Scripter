@@ -64,8 +64,6 @@ public final class EventPlayer {
 		this.session = session;
 	}
 
-	private final java.util.List<Entity> drops = new java.util.ArrayList<>();
-
 	public void fire(SceneObject owner, SceneEvent event) {
 		Entity actor = session.actors().actor(owner.id()).orElse(null);
 		switch (event.type()) {
@@ -139,21 +137,14 @@ public final class EventPlayer {
 				for (net.minecraft.world.item.ItemStack stack : Block.getDrops(before.state(), level, pos, null)) {
 					net.minecraft.world.entity.item.ItemEntity item = new net.minecraft.world.entity.item.ItemEntity(level,
 							pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, stack);
-					item.setNeverPickUp();
-					((io.github.firestormfmd.scenescripter.actor.ActorAccess) item).scenescripter$setSceneDrop(true);
 					if (level.addFreshEntity(item)) {
-						drops.add(item);
+						session.drops().adopt(item);
 					}
 				}
 			});
 		}
 	}
 
-	/** Removes the items explosions dropped. */
-	public void clearDrops() {
-		drops.forEach(Entity::discard);
-		drops.clear();
-	}
 
 	private void shoot(SceneObject owner, SceneEvent event, Entity actor) {
 		String projectile = event.params().get("projectile") instanceof String p ? p : null;

@@ -132,6 +132,31 @@ public class ActorGameTests {
 		helper.succeed();
 	}
 
+	@GameTest(maxTicks = 40)
+	public void deathLootDropsAndGoesAwayOnRewind(GameTestHelper helper) {
+		Scene scene = new Scene("t", 200);
+		SceneObject cow = TestScenes.object(scene, "cow", "minecraft:cow", TestScenes.at(helper, 2, 2, 2));
+		cow.appearance().put("death_drops", "true");
+		cow.channel(BuiltInChannels.DEAD).put(Keyframe.of(5, true, Interpolation.STEP));
+		SceneSession session = TestScenes.session(helper, scene);
+		session.tick();
+		session.play();
+		for (int i = 0; i < 10; i++) {
+			session.tick();
+		}
+		int dropped = session.drops().count();
+		helper.assertTrue(dropped > 0, "a cow always drops beef");
+		helper.assertTrue(helper.getLevel().getEntitiesOfClass(ItemEntity.class, new net.minecraft.world.phys.AABB(
+				helper.absolutePos(net.minecraft.core.BlockPos.ZERO)).inflate(8)).stream().noneMatch(Entity::shouldBeSaved),
+				"dropped loot is never saved");
+		session.pause();
+		session.seek(0);
+		session.tick();
+		helper.assertValueEqual(session.drops().count(), 0, "loot left after rewinding");
+		session.close();
+		helper.succeed();
+	}
+
 	@GameTest(maxTicks = 20)
 	public void propsShowTheirContent(GameTestHelper helper) {
 		Scene scene = new Scene("t", 200);

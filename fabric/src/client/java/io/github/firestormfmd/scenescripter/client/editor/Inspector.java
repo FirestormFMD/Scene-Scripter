@@ -150,6 +150,16 @@ final class Inspector {
 					c -> c.appearance().put("billboard", modes.get((modes.indexOf(mode) + 1) % modes.size()))), null);
 		}
 		Entity actor = ClientScene.actor(o.id()).orElse(null);
+		if (actor instanceof net.minecraft.world.entity.LivingEntity) {
+			boolean loot = "true".equals(o.appearance().get("death_drops"));
+			row("Loot on death", loot ? "drops" : "none", false, () -> EditActions.change(o, "Change death loot", c -> {
+				if (loot) {
+					c.appearance().remove("death_drops");
+				} else {
+					c.appearance().put("death_drops", "true");
+				}
+			}), null);
+		}
 		if (actor instanceof net.minecraft.world.entity.AgeableMob || actor instanceof net.minecraft.world.entity.monster.zombie.Zombie
 				|| actor instanceof net.minecraft.world.entity.monster.piglin.Piglin
 				|| actor instanceof net.minecraft.world.entity.monster.Zoglin) {

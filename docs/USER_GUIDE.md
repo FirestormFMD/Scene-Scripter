@@ -65,7 +65,7 @@ Every object has:
 - **Content** for props: the block a falling block or block display shows (in command syntax), the item a dropped item or item display shows, the text of a text display, and whether a display turns to face the camera.
 - **Variables** of your own: under **Variables**, **Add** takes a name, a type and a starting value, such as `lives int 3`. Types are `int`, `float` and `bool`. Key them like any other channel and use them in event conditions (see below).
 
-Health is not real health. It is a number that attacks subtract from and that can trigger a death at 0 when auto death is on.
+Health is not real health. It is a number that attacks subtract from and that can trigger a death at 0 when auto death is on. Turn on **Loot on death** and a mob drops its vanilla loot when it dies; like items from blasts, nobody can pick the loot up, it is never saved, and it goes away when you rewind.
 
 ## Motion paths
 
@@ -80,7 +80,7 @@ To edit a path, select it and click one of its points (the selected point is dra
 - **Delete** removes the point (a path keeps at least two).
 - **H** gives the point Bézier handles, drawn in white. Drag either handle to shape the curve; the other mirrors it so the path stays smooth. **H** again returns the point to the automatic curve.
 
-A path that starts after an explosion follows the crater the explosion left.
+Paths follow craters: an object walking when a blast goes off falls into the hole, and a path that starts later walks through it.
 
 The selected object shows faint ghosts of where it will be a little before and after the playhead, and its events for three seconds either side are marked in the world where it will be when they happen (purple for auto results). An object with attacks also shows how far it can hit from where it stands: a box for mobs, and for players a circle at eye height with a line where they look.
 

@@ -12,6 +12,7 @@ import io.github.firestormfmd.scenescripter.core.scene.BuiltInChannels;
 import io.github.firestormfmd.scenescripter.core.scene.SceneEvent;
 import io.github.firestormfmd.scenescripter.mixin.AbstractArrowAccessor;
 import io.github.firestormfmd.scenescripter.mixin.FallingBlockAccessor;
+import io.github.firestormfmd.scenescripter.mixin.LivingEntityInvoker;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -70,8 +71,11 @@ public final class ActorController {
 	/** Objects a player is performing right now; the player stands in for their actors. */
 	private final Set<String> hidden = new HashSet<>();
 
-	public ActorController(ServerLevel level) {
+	private final SceneDrops drops;
+
+	public ActorController(ServerLevel level, SceneDrops drops) {
 		this.level = level;
+		this.drops = drops;
 	}
 
 	public ServerLevel level() {
@@ -157,6 +161,12 @@ public final class ActorController {
 			typeSpecific(evaluator, o, e, s, tick);
 			if (spawnedNow && "poof".equals(o.appearance().get("spawn_effect"))) {
 				level.broadcastEntityEvent(e, POOF_EVENT);
+			}
+			if (!jump && s.dead() && !wasDead.getOrDefault(o.id(), false) && "true".equals(o.appearance().get("death_drops"))
+					&& e instanceof net.minecraft.world.entity.LivingEntity living) {
+				// Vanilla death loot, taken over by the scene so it goes away again on rewind.
+				drops.capture(level, living.getBoundingBox().inflate(3), () -> ((LivingEntityInvoker) living)
+						.scenescripter$dropAllDeathLoot(level, level.damageSources().generic()));
 			}
 			wasDead.put(o.id(), s.dead());
 			if (!snap) {

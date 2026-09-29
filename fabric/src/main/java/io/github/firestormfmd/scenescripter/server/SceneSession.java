@@ -32,6 +32,7 @@ public final class SceneSession {
 	private final WorldBlocks blocks;
 	private final ActorController actors;
 	private final EventPlayer events;
+	private final SceneDrops drops = new SceneDrops();
 	private final Solver solver;
 	private List<Solver.AttackResult> attackResults = List.of();
 	private List<Solver.ExplosionResult> explosions = List.of();
@@ -59,7 +60,7 @@ public final class SceneSession {
 		this.clock = new PlaybackClock(scene.length());
 		this.journal = new BlockJournal<>(journalFile);
 		this.blocks = new WorldBlocks(level);
-		this.actors = new ActorController(level);
+		this.actors = new ActorController(level, drops);
 		this.events = new EventPlayer(this);
 		this.solver = new Solver(new WorldCombat(level, false));
 		this.tracks = new WorldTracks(level);
@@ -89,6 +90,11 @@ public final class SceneSession {
 
 	public ActorController actors() {
 		return actors;
+	}
+
+	/** Items the scene's blasts and deaths dropped. */
+	public SceneDrops drops() {
+		return drops;
 	}
 
 	public ServerLevel level() {
@@ -324,7 +330,7 @@ public final class SceneSession {
 
 	private void applyStep(PlaybackClock.Step step) {
 		if (!step.contiguous() || step.to() < step.from()) {
-			events.clearDrops();
+			drops.clear();
 		}
 		journal.seek(step.to(), blocks);
 		actorListChanged |= actors.update(evaluator, step.to(), !step.contiguous());
@@ -416,7 +422,7 @@ public final class SceneSession {
 	/** Removes actors and undoes every block change, leaving the world as it was before the scene. */
 	public void close() {
 		clock.pause();
-		events.clearDrops();
+		drops.clear();
 		actors.removeAll();
 		journal.revertAll(blocks);
 		tracks.restore();
