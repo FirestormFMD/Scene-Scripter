@@ -1,0 +1,441 @@
+package io.github.firestormfmd.scenescripter.client.render;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraft.client.renderer.debug.DebugRenderer;
+import net.minecraft.gizmos.GizmoStyle;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.util.debug.DebugValueAccess;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+import io.github.firestormfmd.scenescripter.client.ClientScene;
+import io.github.firestormfmd.scenescripter.client.editor.EditorMode;
+import io.github.firestormfmd.scenescripter.client.editor.EditorState;
+import io.github.firestormfmd.scenescripter.client.editor.Gizmo;
+import io.github.firestormfmd.scenescripter.core.path.BodySettings;
+import io.github.firestormfmd.scenescripter.core.path.Locomotion;
+import io.github.firestormfmd.scenescripter.core.path.LocomotionPlanner;
+import io.github.firestormfmd.scenescripter.core.path.MotionSample;
+import io.github.firestormfmd.scenescripter.core.path.PathIssue;
+import io.github.firestormfmd.scenescripter.core.scene.MotionClip;
+import io.github.firestormfmd.scenescripter.core.scene.MotionPath;
+import io.github.firestormfmd.scenescripter.core.scene.PathPoint;
+import io.github.firestormfmd.scenescripter.core.scene.Scene;
+import io.github.firestormfmd.scenescripter.core.scene.SceneObject;
+import io.github.firestormfmd.scenescripter.server.LevelTerrain;
+
+/**
+ * Draws the editor's in-world overlay with vanilla gizmos: actor boxes, motion paths and their problems, and the
+ * path being drawn. Only visible while the editor is open, so it never shows up in recordings.
+ */
+public final class EditorOverlay implements DebugRenderer.SimpleDebugRenderer {
+	public static final EditorOverlay INSTANCE = new EditorOverlay();
+
+	private static final int ACTOR = 0x80FFFFFF;
+	private static final int SELECTED = 0xFFFFD84C;
+	private static final int HOVERED = 0xFF6EC8FF;
+	private static final int PATH = 0xFF4C8DFF;
+	private static final int PATH_SELECTED = 0xFFFFD84C;
+	private static final int PROBLEM = 0xFFFF4040;
+	private static final int DRAFT = 0xFF7CFF7C;
+	private static final int HIT = 0xFF5ADB7A;
+	private static final int BLAST = 0xFFFF7A2E;
+	private static final int BOUNDS = 0x90B0B0B0;
+	private static final int GHOST = 0x60FFFFFF;
+	private static final int SHOT = 0xFFE0E070;
+	private static final int HANDLE = 0xFFFFFFFF;
+	private static final int AXIS_X = 0xFFFF5A5A;
+	private static final int AXIS_Y = 0xFF5ADB5A;
+	private static final int AXIS_Z = 0xFF5A8CFF;
+	private static final int RING = 0xC0E0E0E0;
+	private static final int EVENT = 0xFFE8B04C;
+	private static final int AUTO = 0xFFB06CFF;
+	private static final int REACH = 0xA05ADB7A;
+	private static final int BLAST_RADIUS = 0x80FF7A2E;
+	/** Events of the selected object this many ticks either side of the playhead are marked in the world. */
+	private static final int EVENT_RANGE = 60;
+	/** Most blocks outlined for the selected object's blast; bigger craters show as one box. */
+	private static final int MAX_BLOCK_OUTLINES = 1500;
+	/** Ghosts are drawn this many ticks apart, this far either side of the playhead. */
+	private static final int GHOST_STEP = 10;
+	private static final int GHOST_RANGE = 40;
+
+	private long cachedVersion = -1;
+	private final Map<String, Locomotion> previews = new HashMap<>();
+	private io.github.firestormfmd.scenescripter.core.runtime.SceneEvaluator evaluator;
+
+	private EditorOverlay() {
+	}
+
+	@Override
+	public void emitGizmos(double camX, double camY, double camZ, DebugValueAccess debugValues, Frustum frustum,
+			float partialTicks) {
+		if (!EditorMode.isOpen()) {
+			return;
+		}
+		Minecraft mc = Minecraft.getInstance();
+		Scene scene = ClientScene.scene().orElse(null);
+		if (scene == null || mc.level == null) {
+			return;
+		}
+		if (cachedVersion != ClientScene.version()) {
+			cachedVersion = ClientScene.version();
+			previews.clear();
+		}
+		evaluator = ClientScene.evaluator().orElse(null);
+		if (evaluator == null) {
+			return;
+		}
+
+		if (scene.bounds() != null) {
+			var b = scene.bounds();
+			Gizmos.cuboid(new AABB(b.min().x(), b.min().y(), b.min().z(), b.max().x() + 1, b.max().y() + 1, b.max().z() + 1),
+					GizmoStyle.stroke(BOUNDS, 1f));
+		}
+		drawGhosts(scene);
+		drawEventMarkers(scene);
+		drawReach(scene);
+		drawShots(scene);
+		drawBlasts();
+
+		for (SceneObject o : scene.objects()) {
+			ClientScene.actor(o.id()).ifPresent(e -> {
+				int color = o.id().equals(EditorState.selectedObject) ? SELECTED
+						: o.id().equals(EditorState.hoveredObject) ? HOVERED : ACTOR;
+				Gizmos.cuboid(interpolatedBox(e, partialTicks), GizmoStyle.stroke(color,
+						color == ACTOR ? 1.0f : 2.5f));
+				if (color != ACTOR) {
+					Gizmos.billboardTextOverMob(e, 0, o.name(), color, 0.6f);
+				}
+			});
+		}
+
+		for (MotionPath path : scene.paths()) {
+			drawPath(mc, scene, path);
+		}
+		drawGizmo(partialTicks);
+
+		int tick = ClientScene.tick();
+		for (ClientScene.AttackLine attack : ClientScene.attacks()) {
+			if (attack.target() == null || Math.abs(attack.tick() - tick) > 20) {
+				continue;
+			}
+			boolean related = attack.attacker().equals(EditorState.selectedObject) || attack.target().equals(EditorState.selectedObject);
+			if (!related) {
+				continue;
+			}
+			Entity from = ClientScene.actor(attack.attacker()).orElse(null);
+			Entity to = ClientScene.actor(attack.target()).orElse(null);
+			if (from == null || to == null) {
+				continue;
+			}
+			Vec3 a = from.getEyePosition(partialTicks);
+			Vec3 b = to.getPosition(partialTicks).add(0, to.getBbHeight() / 2, 0);
+			int color = attack.hit() ? HIT : PROBLEM;
+			Gizmos.arrow(a, b, color, attack.hit() ? 2.5f : 1.5f);
+			String label = attack.hit()
+					? String.format(java.util.Locale.ROOT, "hit @%d: %.1f", attack.tick(), attack.damage())
+					: "miss @" + attack.tick() + ": " + attack.reason();
+			Gizmos.billboardText(label, a.add(b).scale(0.5).add(0, 0.4, 0),
+					net.minecraft.gizmos.TextGizmo.Style.forColorAndCentered(color));
+		}
+
+		if (EditorState.dragPreview != null) {
+			Vec3 at = mc(EditorState.dragPreview);
+			Gizmos.cuboid(new AABB(at.add(-0.3, 0, -0.3), at.add(0.3, 1.8, 0.3)), GizmoStyle.stroke(DRAFT, 2f));
+		}
+
+		List<io.github.firestormfmd.scenescripter.core.math.Vec3> draft = EditorState.pathDraft;
+		for (int i = 0; i < draft.size(); i++) {
+			Vec3 p = mc(draft.get(i));
+			Gizmos.point(p, DRAFT, 6f);
+			if (i > 0) {
+				Gizmos.line(mc(draft.get(i - 1)), p, DRAFT, 2f);
+			}
+		}
+	}
+
+	/** Faint boxes where the selected object is shortly before and after the playhead. */
+	private void drawGhosts(Scene scene) {
+		SceneObject o = ClientScene.object(EditorState.selectedObject).orElse(null);
+		if (o == null) {
+			return;
+		}
+		int tick = ClientScene.tick();
+		double w = io.github.firestormfmd.scenescripter.server.EntityBodies.INSTANCE.bodyFor(o).width() / 2;
+		double h = io.github.firestormfmd.scenescripter.server.EntityBodies.INSTANCE.bodyFor(o).height();
+		Vec3 last = null;
+		for (int t = Math.max(0, tick - GHOST_RANGE); t <= Math.min(scene.length(), tick + GHOST_RANGE); t += 2) {
+			var s = evaluator.evaluate(o, t);
+			if (!s.exists()) {
+				last = null;
+				continue;
+			}
+			Vec3 p = mc(s.position());
+			if (last != null) {
+				Gizmos.line(last.add(0, 0.05, 0), p.add(0, 0.05, 0), GHOST, 1f);
+			}
+			last = p;
+			if (t != tick && (t - tick) % GHOST_STEP == 0) {
+				Gizmos.cuboid(new AABB(p.add(-w, 0, -w), p.add(w, h, w)), GizmoStyle.stroke(GHOST, 1f));
+			}
+		}
+	}
+
+	/** The selected object's events near the playhead, marked where it will be when each happens. */
+	private void drawEventMarkers(Scene scene) {
+		SceneObject o = ClientScene.object(EditorState.selectedObject).orElse(null);
+		if (o == null) {
+			return;
+		}
+		int tick = ClientScene.tick();
+		double h = io.github.firestormfmd.scenescripter.server.EntityBodies.INSTANCE.bodyFor(o).height();
+		for (var e : o.events()) {
+			if (Math.abs(e.tick() - tick) > EVENT_RANGE || e.type().equals("mob_event") && e.isGenerated()) {
+				continue;
+			}
+			var s = evaluator.evaluate(o, e.tick());
+			if (!s.exists() && !e.type().equals("explode")) {
+				continue;
+			}
+			Vec3 at = mc(s.position()).add(0, h + 0.6, 0);
+			int color = e.isGenerated() ? AUTO : e.tick() == tick ? SELECTED : EVENT;
+			String what = e.type().equals("mob_event") ? String.valueOf(e.params().get("event")) : e.type();
+			Gizmos.point(at, color, 6f);
+			Gizmos.billboardText(what + " @" + e.tick(), at.add(0, 0.3, 0),
+					net.minecraft.gizmos.TextGizmo.Style.forColorAndCentered(color));
+		}
+	}
+
+	/** How far the selected attacker can hit from where it stands now, if it has attacks. */
+	private void drawReach(Scene scene) {
+		SceneObject o = ClientScene.object(EditorState.selectedObject).orElse(null);
+		if (o == null || o.events().stream().noneMatch(e -> e.type().equals("attack") && !e.isGenerated())) {
+			return;
+		}
+		var s = evaluator.evaluate(o, ClientScene.tick());
+		if (!s.exists()) {
+			return;
+		}
+		var body = io.github.firestormfmd.scenescripter.server.EntityBodies.INSTANCE.bodyFor(o);
+		Vec3 p = mc(s.position());
+		if (io.github.firestormfmd.scenescripter.core.solve.CombatModel.DEFAULT.isPlayerLike(o)) {
+			// Players reach three blocks from their eyes, towards where they look.
+			circle(p.add(0, body.height() * 0.85, 0), io.github.firestormfmd.scenescripter.core.solve.VanillaCombat.PLAYER_REACH,
+					0, REACH);
+			double yaw = Math.toRadians(s.headYaw());
+			Vec3 eye = p.add(0, body.height() * 0.85, 0);
+			Gizmos.line(eye, eye.add(-Math.sin(yaw) * 3, 0, Math.cos(yaw) * 3), REACH, 2f);
+		} else {
+			double r = body.width() / 2 + io.github.firestormfmd.scenescripter.core.solve.VanillaCombat.MOB_MELEE_REACH;
+			Gizmos.cuboid(new AABB(p.add(-r, 0, -r), p.add(r, body.height(), r)), GizmoStyle.stroke(REACH, 1.5f));
+		}
+	}
+
+	/** A circle around {@code c}: flat on the ground for plane 0, upright along X for 1 and along Z for 2. */
+	private static void circle(Vec3 c, double r, int plane, int color) {
+		int segments = 48;
+		Vec3 last = null;
+		for (int i = 0; i <= segments; i++) {
+			double a = 2 * Math.PI * i / segments;
+			double u = Math.cos(a) * r;
+			double v = Math.sin(a) * r;
+			Vec3 p = switch (plane) {
+				case 0 -> c.add(u, 0, v);
+				case 1 -> c.add(u, v, 0);
+				default -> c.add(0, v, u);
+			};
+			if (last != null) {
+				Gizmos.line(last, p, color, 1.5f);
+			}
+			last = p;
+		}
+	}
+
+	/** The flight of every shot the selected object fires. */
+	private void drawShots(Scene scene) {
+		String selected = EditorState.selectedObject;
+		if (selected == null) {
+			return;
+		}
+		SceneObject shooter = scene.object(selected).orElse(null);
+		if (shooter == null) {
+			return;
+		}
+		for (var e : shooter.events()) {
+			if (!e.type().equals("shoot")) {
+				continue;
+			}
+			scene.object(e.id() + ":projectile").ifPresent(p -> p.channel(
+					io.github.firestormfmd.scenescripter.core.scene.BuiltInChannels.POSITION.name()).ifPresent(ch -> {
+				Vec3 last = null;
+				for (var k : ch.keys()) {
+					Vec3 at = mc((io.github.firestormfmd.scenescripter.core.math.Vec3) k.value());
+					if (last != null) {
+						Gizmos.line(last, at, SHOT, 1.5f);
+					}
+					last = at;
+				}
+			}));
+		}
+	}
+
+	/** What upcoming explosions will break: every block for the selected object's, an outline for the rest. */
+	private void drawBlasts() {
+		int tick = ClientScene.tick();
+		for (ClientScene.Blast b : ClientScene.explosions()) {
+			boolean mine = b.owner().equals(EditorState.selectedObject)
+					|| (EditorState.selectedObject != null && b.eventId().startsWith(EditorState.selectedObject + ":"));
+			if (!mine && (b.tick() < tick || b.tick() > tick + 200)) {
+				continue;
+			}
+			Vec3 c = mc(b.center());
+			Gizmos.billboardText("boom @" + b.tick() + " (" + b.power() + ")", c.add(0, 1.2, 0),
+					net.minecraft.gizmos.TextGizmo.Style.forColorAndCentered(BLAST));
+			if (mine) {
+				// Vanilla hurts and throws entities up to twice the power away.
+				double r = b.power() * 2;
+				circle(c, r, 0, BLAST_RADIUS);
+				circle(c, r, 1, BLAST_RADIUS);
+				circle(c, r, 2, BLAST_RADIUS);
+			}
+			int[] blocks = b.blocks();
+			if (blocks.length == 0) {
+				continue;
+			}
+			if (mine && blocks.length / 3 <= MAX_BLOCK_OUTLINES) {
+				for (int i = 0; i < blocks.length; i += 3) {
+					Gizmos.cuboid(new AABB(blocks[i], blocks[i + 1], blocks[i + 2], blocks[i] + 1, blocks[i + 1] + 1,
+							blocks[i + 2] + 1).deflate(0.02), GizmoStyle.stroke(BLAST, 1f));
+				}
+			} else {
+				int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
+				int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
+				for (int i = 0; i < blocks.length; i += 3) {
+					minX = Math.min(minX, blocks[i]);
+					minY = Math.min(minY, blocks[i + 1]);
+					minZ = Math.min(minZ, blocks[i + 2]);
+					maxX = Math.max(maxX, blocks[i]);
+					maxY = Math.max(maxY, blocks[i + 1]);
+					maxZ = Math.max(maxZ, blocks[i + 2]);
+				}
+				Gizmos.cuboid(new AABB(minX, minY, minZ, maxX + 1, maxY + 1, maxZ + 1), GizmoStyle.stroke(BLAST, 1.5f));
+			}
+		}
+	}
+
+	/** Move arrows and the turning ring on the selected actor, with a preview of the drag in progress. */
+	private static void drawGizmo(float partialTicks) {
+		Entity e = Gizmo.target();
+		if (e == null) {
+			return;
+		}
+		Vec3 o = e.getPosition(partialTicks);
+		int[] colors = {0, AXIS_X, AXIS_Y, AXIS_Z};
+		for (int axis = Gizmo.X; axis <= Gizmo.Z; axis++) {
+			Vec3[] ends = Gizmo.arrow(axis, o, e.getBbHeight());
+			boolean hot = Gizmo.hovered == axis || Gizmo.dragging == axis;
+			int color = hot ? SELECTED : colors[axis];
+			Gizmos.line(ends[0], ends[1], color, hot ? 4f : 2.5f);
+			Gizmos.point(ends[1], color, hot ? 10f : 7f);
+		}
+		boolean ringHot = Gizmo.hovered == Gizmo.YAW || Gizmo.dragging == Gizmo.YAW;
+		int ringColor = ringHot ? SELECTED : RING;
+		int segments = 48;
+		for (int i = 0; i < segments; i++) {
+			double a = 2 * Math.PI * i / segments;
+			double b = 2 * Math.PI * (i + 1) / segments;
+			Gizmos.line(o.add(Math.cos(a) * Gizmo.RING, 0.05, Math.sin(a) * Gizmo.RING),
+					o.add(Math.cos(b) * Gizmo.RING, 0.05, Math.sin(b) * Gizmo.RING), ringColor, ringHot ? 3f : 1.5f);
+		}
+		double facing = Math.toRadians(e.getYRot());
+		Gizmos.point(o.add(-Math.sin(facing) * Gizmo.RING, 0.05, Math.cos(facing) * Gizmo.RING), ringColor, 8f);
+		if (Gizmo.previewPos != null) {
+			Vec3 at = mc(Gizmo.previewPos);
+			double hw = e.getBbWidth() / 2;
+			Gizmos.cuboid(new AABB(at.add(-hw, 0, -hw), at.add(hw, e.getBbHeight(), hw)), GizmoStyle.stroke(DRAFT, 2f));
+			Gizmos.line(o, at, DRAFT, 1.5f);
+		}
+		if (Gizmo.previewYaw != null) {
+			double yaw = Math.toRadians(Gizmo.previewYaw);
+			Vec3 to = o.add(-Math.sin(yaw) * Gizmo.RING, 0.05, Math.cos(yaw) * Gizmo.RING);
+			Gizmos.line(o.add(0, 0.05, 0), to, DRAFT, 3f);
+			Gizmos.point(to, DRAFT, 10f);
+			Gizmos.billboardText(String.format(java.util.Locale.ROOT, "%.0f\u00b0", Gizmo.previewYaw), to.add(0, 0.4, 0),
+					net.minecraft.gizmos.TextGizmo.Style.forColorAndCentered(DRAFT));
+		}
+	}
+
+	private void drawPath(Minecraft mc, Scene scene, MotionPath path) {
+		if (path.points().isEmpty()) {
+			return;
+		}
+		boolean selected = path.id().equals(EditorState.selectedPath);
+		Locomotion preview = previews.computeIfAbsent(path.id(), id -> plan(mc, scene, path));
+		int color = selected ? PATH_SELECTED : PATH;
+		if (preview != null) {
+			List<MotionSample> samples = preview.samples();
+			for (int i = 1; i < samples.size(); i++) {
+				Gizmos.line(mc(samples.get(i - 1).pos()).add(0, 0.05, 0), mc(samples.get(i).pos()).add(0, 0.05, 0), color, selected ? 3f : 2f);
+			}
+			for (PathIssue issue : preview.issues()) {
+				MotionSample s = preview.sampleAt(issue.tick());
+				Vec3 at = mc(s.pos());
+				Gizmos.cuboid(new AABB(at.add(-0.3, 0, -0.3), at.add(0.3, 1.8, 0.3)), GizmoStyle.stroke(PROBLEM, 2f));
+				Gizmos.billboardText(issue.kind().message(), at.add(0, 2.2, 0),
+						net.minecraft.gizmos.TextGizmo.Style.forColorAndCentered(PROBLEM));
+			}
+		}
+		List<PathPoint> points = path.points();
+		for (int i = 0; i < points.size(); i++) {
+			boolean current = selected && i == EditorState.selectedPoint;
+			Gizmos.point(mc(points.get(i).pos()).add(0, 0.1, 0), current ? HANDLE : color, current ? 11f : selected ? 8f : 5f);
+		}
+		if (selected && EditorState.selectedPoint >= 0 && EditorState.selectedPoint < points.size()) {
+			drawHandles(points.get(EditorState.selectedPoint));
+		}
+	}
+
+	/** The Bézier handles of the selected path point, following the mouse while one is dragged. */
+	private static void drawHandles(PathPoint point) {
+		if (point.handleOut() == null) {
+			return;
+		}
+		Vec3 at = mc(point.pos()).add(0, 0.1, 0);
+		Vec3 out = mc(point.handleOut());
+		Vec3 in = point.handleIn() == null ? out.scale(-1) : mc(point.handleIn());
+		var preview = EditorState.dragPreview;
+		if (EditorState.dragHandle != 0 && preview != null) {
+			Vec3 dragged = new Vec3(preview.x() - point.pos().x(), 0, preview.z() - point.pos().z());
+			out = EditorState.dragHandle > 0 ? dragged : dragged.scale(-1);
+			in = out.scale(-1);
+		}
+		Gizmos.line(at.add(in), at.add(out), HANDLE, 1.5f);
+		Gizmos.point(at.add(in), HANDLE, 7f);
+		Gizmos.point(at.add(out), HANDLE, 7f);
+	}
+
+	private static Locomotion plan(Minecraft mc, Scene scene, MotionPath path) {
+		try {
+			return LocomotionPlanner.plan(path, MotionClip.atSpeed(path.id(), 0), BodySettings.PLAYER,
+					new LevelTerrain(mc.level, scene.settings().groundFilter()), scene.settings().groundFilter());
+		} catch (RuntimeException e) {
+			return null;
+		}
+	}
+
+	private static AABB interpolatedBox(Entity e, float partialTicks) {
+		Vec3 delta = e.getPosition(partialTicks).subtract(e.position());
+		return e.getBoundingBox().move(delta);
+	}
+
+	private static Vec3 mc(io.github.firestormfmd.scenescripter.core.math.Vec3 v) {
+		return new Vec3(v.x(), v.y(), v.z());
+	}
+}

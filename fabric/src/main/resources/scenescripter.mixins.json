@@ -1,0 +1,30 @@
+{
+	"required": true,
+	"package": "io.github.firestormfmd.scenescripter.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"AbstractArrowAccessor",
+		"ChunkMapMixin",
+		"CollidableOverridesMixin",
+		"CreeperAccessor",
+		"EnderManAccessor",
+		"EntityMixin",
+		"FallingBlockAccessor",
+		"LightningBoltMixin",
+		"LivingEntityInvoker",
+		"LivingEntityMixin",
+		"MannequinAccessor",
+		"PickableOverridesMixin",
+		"ProjectileHitMixin",
+		"PushableOverridesMixin",
+		"ServerGamePacketListenerImplMixin",
+		"ServerLevelMixin",
+		"WolfAccessor"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

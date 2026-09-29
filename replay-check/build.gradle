@@ -1,0 +1,53 @@
+// A client with Fabric API and a recorder but without Scene Scripter, to check that recordings of scenes play back
+// in a game that doesn't have the mod. CI feeds it recordings made by the recorder client game test:
+// `./gradlew :replay-check:runClientGameTest -Precorder=flashback` (or replaymod, the default).
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+repositories {
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = 'Modrinth'
+				url = 'https://api.modrinth.com/maven'
+			}
+		}
+		filter {
+			includeGroup 'maven.modrinth'
+		}
+	}
+}
+
+fabricApi {
+	configureTests {
+		modId = "replaycheck"
+		eula = true
+		enableGameTests = false
+		enableClientGameTests = true
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	// Flashback 0.43.6 or Replay Mod 2.6.27, by Minecraft version and Modrinth version ID (Replay Mod has no 26.3
+	// build yet). The property is shared with the fabric project's client game tests, where "none" is also used.
+	def recorders = [
+		'26.2': [flashback: 'Um7qd3Na', replaymod: '5YS1OgDP'],
+		'26.3': [flashback: 'cV1pa0YV'],
+	].get(project.minecraft_version, [:])
+	def recorder = project.findProperty('recorder')
+	if (!recorders.containsKey(recorder)) {
+		recorder = recorders.containsKey('replaymod') ? 'replaymod' : 'flashback'
+	}
+	if (recorders.containsKey(recorder)) {
+		localRuntime "maven.modrinth:${recorder}:${recorders[recorder]}"
+	}
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}

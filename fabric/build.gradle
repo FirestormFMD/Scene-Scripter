@@ -1,0 +1,103 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+// The jar below packages core's compiled classes, so core must be configured first.
+evaluationDependsOn(':core')
+
+base {
+	archivesName = 'scene-scripter'
+}
+
+// One jar per Minecraft version, such as scene-scripter-1.0.0+26.3.jar.
+version = "${project.mod_version}+${project.minecraft_version}"
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"scenescripter" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+// Code that differs between the Minecraft versions the mod builds for (-Pminecraft_version) lives in
+// src/versions/<version>; everything else is shared.
+sourceSets.main.java.srcDir "src/versions/${project.minecraft_version}/main/java"
+sourceSets.client.java.srcDir "src/versions/${project.minecraft_version}/client/java"
+
+fabricApi {
+	// In-game tests live in src/gametest. Server game tests run with `build`, client game tests with
+	// `runClientGameTest` (CI runs them under xvfb).
+	configureTests {
+		createSourceSet = true
+		modId = "scenescripter-test"
+		eula = true // Accepts the Minecraft EULA for the test server.
+	}
+}
+
+repositories {
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = 'Modrinth'
+				url = 'https://api.modrinth.com/maven'
+			}
+		}
+		filter {
+			includeGroup 'maven.modrinth'
+		}
+	}
+}
+
+// The recorders the client game test can run beside, by Minecraft version and Modrinth version ID.
+// `./gradlew :fabric:runClientGameTest -Precorder=flashback` (or replaymod) adds one to the game; it is never
+// part of the mod. Replay Mod has no 26.3 build yet.
+def recorders = [
+	'26.2': [flashback: 'Um7qd3Na', replaymod: '5YS1OgDP'],
+	'26.3': [flashback: 'cV1pa0YV'],
+].get(project.minecraft_version, [:])
+
+dependencies {
+	def recorder = project.findProperty('recorder')
+	if (recorders.containsKey(recorder)) {
+		localRuntime "maven.modrinth:${recorder}:${recorders[recorder]}"
+	}
+
+	// To change the versions see the gradle.properties file
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	implementation project(':core')
+	gametestImplementation project(':core')
+}
+
+processResources {
+	def version = project.version
+	def minecraftVersion = project.minecraft_version
+	inputs.property "version", version
+	inputs.property "minecraft_version", minecraftVersion
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version, "minecraft_version": minecraftVersion
+	}
+}
+
+java {
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+jar {
+	// Core is plain Java with no Minecraft dependency, so it ships inside the mod jar.
+	from(project(':core').sourceSets.main.output)
+
+	from(rootProject.file("LICENSE")) {
+		rename { "${it}_scene-scripter" }
+	}
+}

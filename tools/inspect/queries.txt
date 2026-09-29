@@ -1,0 +1,4 @@
+# batch 23: the swing state in 26.3
+minecraft 26.3 0.161.0+26.3
+grep world/entity/LivingEntity.java (SwingState|swingState|getCurrentSwingDuration|attackAnim)
+lines world/entity/LivingEntity.java 4078 4140

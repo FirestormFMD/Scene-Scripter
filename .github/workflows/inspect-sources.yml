@@ -1,0 +1,50 @@
+# Developer tool: decompiles Minecraft and prints the parts listed in tools/inspect/queries.txt to the job log.
+# Runs only when that file changes.
+
+name: inspect-sources
+on:
+  push:
+    paths:
+      - 'tools/inspect/queries.txt'
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'microsoft'
+      - name: pick the minecraft version
+        id: version
+        # A "minecraft <version> <fabric api version>" line in queries.txt reads another version's sources.
+        run: |
+          line=$(grep -m1 '^minecraft ' tools/inspect/queries.txt || true)
+          if [ -n "$line" ]; then
+            read -r _ mc api <<<"$line"
+            echo "args=-Pminecraft_version=$mc -Pfabric_api_version=$api" >> "$GITHUB_OUTPUT"
+            echo "key=$mc" >> "$GITHUB_OUTPUT"
+          else
+            echo "args=" >> "$GITHUB_OUTPUT"
+            echo "key=default" >> "$GITHUB_OUTPUT"
+          fi
+      - name: restore decompiled sources
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: mcsrc
+          key: mcsrc-${{ steps.version.outputs.key }}-${{ hashFiles('gradle.properties') }}
+      - name: decompile minecraft
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :fabric:genSources --no-configuration-cache ${{ steps.version.outputs.args }}
+          mkdir -p mcsrc
+          for jar in $(find ~/.gradle fabric/.gradle .gradle -name '*minecraft*sources*.jar' 2>/dev/null); do
+            echo "unpacking $jar"
+            unzip -o -q "$jar" -d mcsrc
+          done
+          find mcsrc -name '*.java' | wc -l
+      - name: run queries
+        run: bash tools/inspect/inspect.sh mcsrc/net/minecraft tools/inspect/queries.txt

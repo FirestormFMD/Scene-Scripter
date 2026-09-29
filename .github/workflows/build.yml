@@ -1,0 +1,160 @@
+# Builds the mod and runs the tests on every push and pull request. Server game tests run as part of
+# `build`; client game tests start a real client under a virtual display.
+
+name: build
+on: [pull_request, push]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+      - name: validate gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+      - name: setup jdk
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'microsoft'
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
+      - name: build
+        run: ./gradlew build
+      - name: store reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: reports
+          path: |
+            **/build/reports/
+            **/build/test-results/
+            fabric/build/run/**/logs/
+      - name: capture build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: Artifacts
+          path: fabric/build/libs/
+
+  # The port to Minecraft 26.3: builds and tests the same sources against 26.3 and runs the client game tests beside
+  # Flashback's 26.3 build (Replay Mod has none yet).
+  minecraft_26_3:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      VERSIONS: -Pminecraft_version=26.3 -Pfabric_api_version=0.161.0+26.3
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+      - name: setup jdk
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'microsoft'
+      - name: install xvfb and a software vulkan driver
+        run: sudo apt-get update && sudo apt-get install -y xvfb mesa-vulkan-drivers
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
+      - name: build
+        run: ./gradlew build $VERSIONS
+      # 26.3 draws through SDL with an OpenGL or a Vulkan backend. Under xvfb OpenGL finds no matching GLX visual, so
+      # the tests use Vulkan on Mesa's software driver, as Fabric API's own CI does.
+      - name: prefer the vulkan backend
+        run: |
+          mkdir -p fabric/build/run/clientGameTest
+          echo 'version:4896' >> fabric/build/run/clientGameTest/options.txt
+          echo 'preferredGraphicsBackend:"vulkan"' >> fabric/build/run/clientGameTest/options.txt
+      - name: run client game tests beside flashback
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew :fabric:runClientGameTest $VERSIONS -Precorder=flashback
+      - name: capture reports, screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: minecraft-26.3
+          path: |
+            **/build/reports/
+            fabric/build/libs/
+            fabric/build/run/**/screenshots/
+            fabric/build/run/**/logs/
+            fabric/build/run/**/crash-reports/
+
+  client_game_test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        # Alone, and beside each recorder the plan targets (their 26.2 builds from Modrinth).
+        recorder: [none, flashback, replaymod]
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+      - name: setup jdk
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'microsoft'
+      - name: install xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
+      - name: run client game tests
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew :fabric:runClientGameTest -Precorder=${{ matrix.recorder }}
+      - name: capture screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: client-game-test-${{ matrix.recorder }}
+          path: |
+            fabric/build/run/**/screenshots/
+            fabric/build/run/**/logs/
+            fabric/build/run/**/crash-reports/
+      - name: keep the recordings
+        if: matrix.recorder != 'none'
+        uses: actions/upload-artifact@v7
+        with:
+          name: scene-recordings-${{ matrix.recorder }}
+          path: |
+            fabric/build/run/**/replay_recordings/**/*.mcpr
+            fabric/build/run/**/flashback/replays/*.zip
+          if-no-files-found: error
+
+  # Plays the recordings each recorder made of the scenes back in a game with that recorder but without Scene Scripter.
+  replay_without_scene_scripter:
+    needs: client_game_test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        recorder: [flashback, replaymod]
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+      - name: setup jdk
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'microsoft'
+      - name: install xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
+      - name: fetch the recordings
+        uses: actions/download-artifact@v7
+        with:
+          name: scene-recordings-${{ matrix.recorder }}
+          path: recordings
+      - name: play them back without scene scripter
+        env:
+          SCENE_RECORDINGS: ${{ github.workspace }}/recordings
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew :replay-check:runClientGameTest -Precorder=${{ matrix.recorder }}
+      - name: capture screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: replay-without-scene-scripter-${{ matrix.recorder }}
+          path: |
+            replay-check/build/run/**/screenshots/
+            replay-check/build/run/**/logs/
+            replay-check/build/run/**/crash-reports/

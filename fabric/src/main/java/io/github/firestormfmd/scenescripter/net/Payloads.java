@@ -1,0 +1,324 @@
+package io.github.firestormfmd.scenescripter.net;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+
+import io.github.firestormfmd.scenescripter.SceneScripter;
+
+/**
+ * Everything the editor and the server say to each other. Recordings don't depend on any of this: actors reach
+ * clients through ordinary vanilla packets.
+ */
+public final class Payloads {
+	private Payloads() {
+	}
+
+	private static <T extends CustomPacketPayload> CustomPacketPayload.Type<T> payloadType(String path) {
+		return new CustomPacketPayload.Type<>(SceneScripter.id(path));
+	}
+
+	private static void writePart(FriendlyByteBuf buf, Chunks.Part p) {
+		buf.writeVarInt(p.transfer());
+		buf.writeVarInt(p.index());
+		buf.writeVarInt(p.count());
+		buf.writeByteArray(p.data());
+	}
+
+	private static Chunks.Part readPart(FriendlyByteBuf buf) {
+		return new Chunks.Part(buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readByteArray(Chunks.PART_SIZE + 64));
+	}
+
+	// ---- Client to server ----
+
+	/** The editor was opened or closed. */
+	public record EditorState(boolean open) implements CustomPacketPayload {
+		public static final Type<EditorState> TYPE = payloadType("editor_state");
+		public static final StreamCodec<FriendlyByteBuf, EditorState> CODEC = StreamCodec.of(
+				(buf, p) -> buf.writeBoolean(p.open()), buf -> new EditorState(buf.readBoolean()));
+
+		@Override
+		public Type<EditorState> type() {
+			return TYPE;
+		}
+	}
+
+	/** Part of an edit op, as JSON. */
+	public record Edit(Chunks.Part part) implements CustomPacketPayload {
+		public static final Type<Edit> TYPE = payloadType("edit");
+		public static final StreamCodec<FriendlyByteBuf, Edit> CODEC = StreamCodec.of(
+				(buf, p) -> writePart(buf, p.part()), buf -> new Edit(readPart(buf)));
+
+		@Override
+		public Type<Edit> type() {
+			return TYPE;
+		}
+	}
+
+	public record History(boolean redo) implements CustomPacketPayload {
+		public static final Type<History> TYPE = payloadType("history");
+		public static final StreamCodec<FriendlyByteBuf, History> CODEC = StreamCodec.of(
+				(buf, p) -> buf.writeBoolean(p.redo()), buf -> new History(buf.readBoolean()));
+
+		@Override
+		public Type<History> type() {
+			return TYPE;
+		}
+	}
+
+	/** Play, pause, seek, speed and loop requests. */
+	public record Playback(int action, int a, int b, float speed) implements CustomPacketPayload {
+		public static final int PLAY = 0;
+		public static final int PAUSE = 1;
+		public static final int SEEK = 2;
+		public static final int SPEED = 3;
+		public static final int LOOP = 4;
+		public static final int STOP = 5;
+
+		public static final Type<Playback> TYPE = payloadType("playback");
+		public static final StreamCodec<FriendlyByteBuf, Playback> CODEC = StreamCodec.of(
+				(buf, p) -> {
+					buf.writeVarInt(p.action());
+					buf.writeVarInt(p.a());
+					buf.writeVarInt(p.b());
+					buf.writeFloat(p.speed());
+				},
+				buf -> new Playback(buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readFloat()));
+
+		@Override
+		public Type<Playback> type() {
+			return TYPE;
+		}
+	}
+
+	/** New, open, save, close, delete and list scenes. */
+	public record SceneCommand(int action, String name, int length) implements CustomPacketPayload {
+		public static final int NEW = 0;
+		public static final int OPEN = 1;
+		public static final int SAVE = 2;
+		public static final int CLOSE = 3;
+		public static final int LIST = 4;
+		public static final int DELETE = 5;
+		/** Makes the scene's block changes up to the playhead permanent. */
+		public static final int APPLY = 6;
+		/** Fits the scene bounds around everything in the scene. */
+		public static final int FIT_BOUNDS = 7;
+		/** Plays from the start for a recorder, holding the first frame for {@code length} ticks. */
+		public static final int RECORD = 8;
+		public static final int RESET = 9;
+		public static final int EXPORT = 10;
+		/** Imports the file named in {@code name} from the exports folder; {@code length} 1 moves it to the player. */
+		public static final int IMPORT = 11;
+
+		public static final Type<SceneCommand> TYPE = payloadType("scene_command");
+		public static final StreamCodec<FriendlyByteBuf, SceneCommand> CODEC = StreamCodec.of(
+				(buf, p) -> {
+					buf.writeVarInt(p.action());
+					buf.writeUtf(p.name(), 64);
+					buf.writeVarInt(p.length());
+				},
+				buf -> new SceneCommand(buf.readVarInt(), buf.readUtf(64), buf.readVarInt()));
+
+		@Override
+		public Type<SceneCommand> type() {
+			return TYPE;
+		}
+	}
+
+	// ---- Server to client ----
+
+	/** Part of the open scene as JSON ({@code {"name": ..., "scene": ...}}), or of an empty object when none is open. */
+	public record SceneData(Chunks.Part part) implements CustomPacketPayload {
+		public static final Type<SceneData> TYPE = payloadType("scene_data");
+		public static final StreamCodec<FriendlyByteBuf, SceneData> CODEC = StreamCodec.of(
+				(buf, p) -> writePart(buf, p.part()), buf -> new SceneData(readPart(buf)));
+
+		@Override
+		public Type<SceneData> type() {
+			return TYPE;
+		}
+	}
+
+	/** Playhead and undo state of the open scene. */
+	public record PlaybackState(int tick, boolean playing, float speed, int loopStart, int loopEnd, boolean dirty,
+			String undoLabel, String redoLabel) implements CustomPacketPayload {
+		public static final Type<PlaybackState> TYPE = payloadType("playback_state");
+		public static final StreamCodec<FriendlyByteBuf, PlaybackState> CODEC = StreamCodec.of(
+				(buf, p) -> {
+					buf.writeVarInt(p.tick());
+					buf.writeBoolean(p.playing());
+					buf.writeFloat(p.speed());
+					buf.writeVarInt(p.loopStart() + 1);
+					buf.writeVarInt(p.loopEnd() + 1);
+					buf.writeBoolean(p.dirty());
+					buf.writeUtf(p.undoLabel(), 256);
+					buf.writeUtf(p.redoLabel(), 256);
+				},
+				buf -> new PlaybackState(buf.readVarInt(), buf.readBoolean(), buf.readFloat(), buf.readVarInt() - 1,
+						buf.readVarInt() - 1, buf.readBoolean(), buf.readUtf(256), buf.readUtf(256)));
+
+		@Override
+		public Type<PlaybackState> type() {
+			return TYPE;
+		}
+	}
+
+	/**
+	 * Which entities are actors. Sent to every player, not just editors, so clients can apply the no-collision
+	 * rules (walking through actors, not targeting them).
+	 */
+	public record ActorIds(List<String> objectIds, List<Integer> entityIds) implements CustomPacketPayload {
+		public static final Type<ActorIds> TYPE = payloadType("actor_ids");
+		public static final StreamCodec<FriendlyByteBuf, ActorIds> CODEC = StreamCodec.of(
+				(buf, p) -> {
+					buf.writeVarInt(p.objectIds().size());
+					for (int i = 0; i < p.objectIds().size(); i++) {
+						buf.writeUtf(p.objectIds().get(i), 128);
+						buf.writeVarInt(p.entityIds().get(i));
+					}
+				},
+				buf -> {
+					int n = buf.readVarInt();
+					List<String> objects = new ArrayList<>(n);
+					List<Integer> entities = new ArrayList<>(n);
+					for (int i = 0; i < n; i++) {
+						objects.add(buf.readUtf(128));
+						entities.add(buf.readVarInt());
+					}
+					return new ActorIds(objects, entities);
+				});
+
+		@Override
+		public Type<ActorIds> type() {
+			return TYPE;
+		}
+	}
+
+	public record SceneList(List<String> names) implements CustomPacketPayload {
+		public static final Type<SceneList> TYPE = payloadType("scene_list");
+		public static final StreamCodec<FriendlyByteBuf, SceneList> CODEC = StreamCodec.of(
+				(buf, p) -> {
+					buf.writeVarInt(p.names().size());
+					p.names().forEach(n -> buf.writeUtf(n, 64));
+				},
+				buf -> {
+					int n = buf.readVarInt();
+					List<String> names = new ArrayList<>(n);
+					for (int i = 0; i < n; i++) {
+						names.add(buf.readUtf(64));
+					}
+					return new SceneList(names);
+				});
+
+		@Override
+		public Type<SceneList> type() {
+			return TYPE;
+		}
+	}
+
+	/**
+	 * Starts or stops performance capture, or applies a take.
+	 *
+	 * @param punchOut last tick to record, or -1 for the end of the scene
+	 * @param mode how a take is applied: {@code keys}, {@code raw} or {@code path}
+	 */
+	public record Capture(int action, String objectId, int punchIn, int punchOut, int preroll, boolean loop,
+			String takeId, String mode) implements CustomPacketPayload {
+		public static final int START = 0;
+		public static final int STOP = 1;
+		public static final int USE_TAKE = 2;
+
+		public static final Type<Capture> TYPE = payloadType("capture");
+		public static final StreamCodec<FriendlyByteBuf, Capture> CODEC = StreamCodec.of(
+				(buf, p) -> {
+					buf.writeVarInt(p.action());
+					buf.writeUtf(p.objectId(), 128);
+					buf.writeVarInt(p.punchIn());
+					buf.writeVarInt(p.punchOut() + 1);
+					buf.writeVarInt(p.preroll());
+					buf.writeBoolean(p.loop());
+					buf.writeUtf(p.takeId(), 128);
+					buf.writeUtf(p.mode(), 16);
+				},
+				buf -> new Capture(buf.readVarInt(), buf.readUtf(128), buf.readVarInt(), buf.readVarInt() - 1,
+						buf.readVarInt(), buf.readBoolean(), buf.readUtf(128), buf.readUtf(16)));
+
+		@Override
+		public Type<Capture> type() {
+			return TYPE;
+		}
+	}
+
+	/** Whether this player is performing an object right now, so the client closes the editor and Right Ctrl stops. */
+	/** Tells the player who pressed Record that the scene started or stopped playing for the recorder. */
+	public record RecordingRun(boolean active) implements CustomPacketPayload {
+		public static final Type<RecordingRun> TYPE = payloadType("recording_run");
+		public static final StreamCodec<FriendlyByteBuf, RecordingRun> CODEC = StreamCodec.of(
+				(buf, p) -> buf.writeBoolean(p.active()),
+				buf -> new RecordingRun(buf.readBoolean()));
+
+		@Override
+		public Type<RecordingRun> type() {
+			return TYPE;
+		}
+	}
+
+	public record CaptureState(boolean active, String objectId) implements CustomPacketPayload {
+		public static final Type<CaptureState> TYPE = payloadType("capture_state");
+		public static final StreamCodec<FriendlyByteBuf, CaptureState> CODEC = StreamCodec.of(
+				(buf, p) -> {
+					buf.writeBoolean(p.active());
+					buf.writeUtf(p.objectId(), 128);
+				},
+				buf -> new CaptureState(buf.readBoolean(), buf.readUtf(128)));
+
+		@Override
+		public Type<CaptureState> type() {
+			return TYPE;
+		}
+	}
+
+	/** Objects this editor has hidden (or not soloed); their actors are removed while the editor is open. */
+	public record EditorView(List<String> hidden) implements CustomPacketPayload {
+		public static final Type<EditorView> TYPE = payloadType("editor_view");
+		public static final StreamCodec<FriendlyByteBuf, EditorView> CODEC = StreamCodec.of(
+				(buf, p) -> {
+					buf.writeVarInt(p.hidden().size());
+					p.hidden().forEach(id -> buf.writeUtf(id, 128));
+				},
+				buf -> {
+					int n = Math.min(buf.readVarInt(), 4096);
+					List<String> ids = new ArrayList<>(n);
+					for (int i = 0; i < n; i++) {
+						ids.add(buf.readUtf(128));
+					}
+					return new EditorView(ids);
+				});
+
+		@Override
+		public Type<EditorView> type() {
+			return TYPE;
+		}
+	}
+
+	public static void register() {
+		PayloadTypeRegistry.serverboundPlay().register(EditorState.TYPE, EditorState.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(Edit.TYPE, Edit.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(History.TYPE, History.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(Playback.TYPE, Playback.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(SceneCommand.TYPE, SceneCommand.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(Capture.TYPE, Capture.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(EditorView.TYPE, EditorView.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(CaptureState.TYPE, CaptureState.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(RecordingRun.TYPE, RecordingRun.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(SceneData.TYPE, SceneData.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(PlaybackState.TYPE, PlaybackState.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(ActorIds.TYPE, ActorIds.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(SceneList.TYPE, SceneList.CODEC);
+	}
+}
