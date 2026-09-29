@@ -41,6 +41,8 @@ import io.github.firestormfmd.scenescripter.net.Payloads;
  */
 public final class SceneManager {
 	private static final int AUTOSAVE_TICKS = 20 * 60 * 5;
+	/** Most blocks per explosion sent to editors for the "will break" preview. */
+	private static final int MAX_PREVIEW_BLOCKS = 4096;
 	private static SceneManager instance;
 
 	private final MinecraftServer server;
@@ -263,6 +265,18 @@ public final class SceneManager {
 				case Payloads.SceneCommand.SAVE -> save();
 				case Payloads.SceneCommand.CLOSE -> close();
 				case Payloads.SceneCommand.DELETE -> delete(c.name());
+				case Payloads.SceneCommand.APPLY -> {
+					if (session != null) {
+						session.applyToWorld();
+						player.sendSystemMessage(Component.literal("The scene's block changes up to tick "
+								+ session.clock().tick() + " are now part of the world"));
+					}
+				}
+				case Payloads.SceneCommand.FIT_BOUNDS -> {
+					if (session != null) {
+						session.fitBounds(8);
+					}
+				}
 				default -> {
 				}
 			}
@@ -309,6 +323,28 @@ public final class SceneManager {
 				results.add(ro);
 			}
 			o.add("attacks", results);
+			com.google.gson.JsonArray blasts = new com.google.gson.JsonArray();
+			for (var e : session.explosions()) {
+				JsonObject eo = new JsonObject();
+				eo.addProperty("event", e.eventId());
+				eo.addProperty("owner", e.ownerId());
+				eo.addProperty("tick", e.tick());
+				eo.add("center", io.github.firestormfmd.scenescripter.core.io.SceneCodec.vec(e.center()));
+				eo.addProperty("power", e.power());
+				com.google.gson.JsonArray blocks = new com.google.gson.JsonArray();
+				int n = 0;
+				for (var b : e.blocks()) {
+					if (n++ >= MAX_PREVIEW_BLOCKS) {
+						break;
+					}
+					blocks.add(b.x());
+					blocks.add(b.y());
+					blocks.add(b.z());
+				}
+				eo.add("blocks", blocks);
+				blasts.add(eo);
+			}
+			o.add("explosions", blasts);
 		}
 		return o.toString();
 	}

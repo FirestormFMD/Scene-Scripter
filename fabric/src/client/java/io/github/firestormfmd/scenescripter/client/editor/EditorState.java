@@ -13,7 +13,12 @@ import io.github.firestormfmd.scenescripter.core.math.Vec3;
  */
 public final class EditorState {
 	public enum Tool {
-		SELECT, PLACE, PATH
+		SELECT, PLACE, PATH, BLOCKS
+	}
+
+	/** What a click does with the block tool. */
+	public enum BlockAction {
+		BREAK, PLACE, USE
 	}
 
 	public static @Nullable String selectedObject;
@@ -22,6 +27,9 @@ public final class EditorState {
 	public static int selectedKeyTick = -1;
 	public static @Nullable String hoveredObject;
 	public static Tool tool = Tool.SELECT;
+	public static BlockAction blockAction = BlockAction.BREAK;
+	/** Block state the block tool places, in command syntax. */
+	public static String blockState = "minecraft:stone";
 	/** Entity type placed by the place tool. */
 	public static String placeType = "minecraft:zombie";
 	/** Control points of a path being drawn. */

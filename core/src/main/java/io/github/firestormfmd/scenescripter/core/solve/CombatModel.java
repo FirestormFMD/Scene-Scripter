@@ -27,6 +27,23 @@ public interface CombatModel {
 	/** Whether nothing solid blocks the straight line between two points. */
 	boolean lineOfSight(Vec3 from, Vec3 to);
 
+	/** Whether the object has health and can be hurt, unlike TNT, arrows or boats. */
+	default boolean isLiving(SceneObject object) {
+		return !NOT_LIVING.contains(object.entityType());
+	}
+
+	/** The {@code explosion_knockback_resistance} attribute, from 0 to 1. */
+	default double explosionKnockbackResistance(SceneObject object) {
+		return 0;
+	}
+
+	java.util.Set<String> NOT_LIVING = java.util.Set.of("minecraft:tnt", "minecraft:arrow", "minecraft:spectral_arrow",
+			"minecraft:trident", "minecraft:snowball", "minecraft:egg", "minecraft:ender_pearl", "minecraft:splash_potion",
+			"minecraft:lingering_potion", "minecraft:experience_bottle", "minecraft:fireball", "minecraft:small_fireball",
+			"minecraft:wind_charge", "minecraft:end_crystal", "minecraft:item", "minecraft:falling_block",
+			"minecraft:tnt_minecart", "minecraft:minecart", "minecraft:oak_boat", "minecraft:armor_stand",
+			"minecraft:item_display", "minecraft:block_display", "minecraft:text_display");
+
 	CombatModel DEFAULT = new CombatModel() {
 		@Override
 		public double maxHealth(SceneObject object) {

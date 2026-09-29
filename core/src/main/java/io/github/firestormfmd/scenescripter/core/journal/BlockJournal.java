@@ -34,6 +34,44 @@ public final class BlockJournal<S> {
 		return Collections.unmodifiableList(applied);
 	}
 
+	/**
+	 * What was in the world before the scene changed it, for every block an applied set changed. Together with the
+	 * live world this gives the scene's base state.
+	 */
+	public Map<BlockPos, S> originals() {
+		Map<BlockPos, S> out = new LinkedHashMap<>();
+		for (AppliedChangeSet<S> set : applied) {
+			for (BlockChange<S> change : set.previous()) {
+				out.putIfAbsent(change.pos(), change.state());
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * Makes the applied changes permanent: they stay in the world and are forgotten, so they will not be undone.
+	 * The world as it is becomes the scene's new base state.
+	 */
+	public void commit() {
+		applied.clear();
+		store.write(List.of());
+		playhead = Integer.MIN_VALUE;
+	}
+
+	/** The state a change set replaced at a position when it was applied, if that set is applied. */
+	public java.util.Optional<S> replacedBy(String setId, BlockPos pos) {
+		for (AppliedChangeSet<S> set : applied) {
+			if (set.id().equals(setId)) {
+				for (BlockChange<S> change : set.previous()) {
+					if (change.pos().equals(pos)) {
+						return java.util.Optional.of(change.state());
+					}
+				}
+			}
+		}
+		return java.util.Optional.empty();
+	}
+
 	/** True when no scene change is in the world, so manual building is safe. */
 	public boolean atBaseState() {
 		return applied.isEmpty();

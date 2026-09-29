@@ -97,16 +97,27 @@ public final class VanillaCombat {
 		if (strength <= 0 || d.horizontalLength() < 1.0e-9) {
 			return new Vec3[] {Vec3.ZERO};
 		}
-		double vx = d.x() * strength;
-		double vz = d.z() * strength;
-		double vy = Math.min(0.4, strength);
+		return launchPath(new Vec3(d.x() * strength, Math.min(0.4, strength), d.z() * strength));
+	}
+
+	/**
+	 * Displacement of a body launched with a velocity, such as by an explosion, tick by tick until it lands back at
+	 * its starting height and friction stops it. The first entry is the launch tick (no movement yet).
+	 */
+	public static Vec3[] launchPath(Vec3 velocity) {
+		if (velocity.length() < 1.0e-6) {
+			return new Vec3[] {Vec3.ZERO};
+		}
+		double vx = velocity.x();
+		double vy = velocity.y();
+		double vz = velocity.z();
 		double x = 0;
 		double y = 0;
 		double z = 0;
-		boolean onGround = false;
+		boolean onGround = vy <= 0;
 		java.util.List<Vec3> out = new java.util.ArrayList<>();
 		out.add(Vec3.ZERO);
-		for (int i = 0; i < 60; i++) {
+		for (int i = 0; i < 100; i++) {
 			x += vx;
 			z += vz;
 			if (!onGround) {

@@ -16,6 +16,7 @@ import io.github.firestormfmd.scenescripter.core.scene.Gait;
  * @param ticksDead ticks since {@code dead} last became true, or -1 while alive
  * @param equipment item per equipment slot ({@code mainhand}, {@code offhand}, {@code head}, {@code chest},
  *                  {@code legs}, {@code feet}); empty strings mean no item
+ * @param vehicle ID of the object this one rides, or empty
  * @param extra values of all other channels: mob-specific ones and custom variables
  */
 public record ObjectState(
@@ -44,6 +45,7 @@ public record ObjectState(
 		int ticksDead,
 		boolean ambientSounds,
 		boolean silent,
+		String vehicle,
 		Map<String, Object> extra) {
 	public ObjectState {
 		equipment = Map.copyOf(equipment);

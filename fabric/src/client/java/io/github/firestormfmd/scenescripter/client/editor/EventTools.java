@@ -31,6 +31,20 @@ final class EventTools {
 					Keyframe.of(tick, true, Interpolation.STEP)));
 			case "revive" -> ClientNet.edit(new Edits.SetKeyframe(o.id(), BuiltInChannels.DEAD.name(),
 					Keyframe.of(tick, false, Interpolation.STEP)));
+			case "mount" -> {
+				String vehicle = nearestOther(scene, o);
+				if (vehicle != null) {
+					ClientNet.edit(new Edits.SetKeyframe(o.id(), BuiltInChannels.VEHICLE.name(),
+							Keyframe.of(tick, vehicle, Interpolation.STEP)));
+				}
+			}
+			case "dismount" -> ClientNet.edit(new Edits.SetKeyframe(o.id(), BuiltInChannels.VEHICLE.name(),
+					Keyframe.of(tick, "", Interpolation.STEP)));
+			case "shoot" -> {
+				String target = nearestOther(scene, o);
+				String id = EditActions.freshId(scene, "e");
+				ClientNet.edit(new Edits.AddEvent(o.id(), new SceneEvent(id, tick, "shoot", target, Map.of(), null)));
+			}
 			case "attack" -> {
 				String target = nearestOther(scene, o);
 				String id = EditActions.freshId(scene, "e");
@@ -41,6 +55,23 @@ final class EventTools {
 				ClientNet.edit(new Edits.AddEvent(o.id(), new SceneEvent(id, tick, type, null, Map.of(), null)));
 			}
 		}
+	}
+
+	/** Adds a block event on the selected object for the block at {@code pos}. */
+	static void block(SceneObject o, String type, net.minecraft.core.BlockPos pos, String blockState, int tick) {
+		Scene scene = ClientScene.scene().orElse(null);
+		if (scene == null) {
+			return;
+		}
+		java.util.Map<String, Object> params = new java.util.HashMap<>();
+		params.put("x", pos.getX());
+		params.put("y", pos.getY());
+		params.put("z", pos.getZ());
+		if (blockState != null) {
+			params.put("block", blockState);
+		}
+		String id = EditActions.freshId(scene, "e");
+		ClientNet.edit(new Edits.AddEvent(o.id(), new SceneEvent(id, tick, type, null, params, null)));
 	}
 
 	/** The closest other actor right now, the usual target of an attack placed by hand. */

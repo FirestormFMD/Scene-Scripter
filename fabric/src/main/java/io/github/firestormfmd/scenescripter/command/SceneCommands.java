@@ -21,6 +21,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 
 import io.github.firestormfmd.scenescripter.core.io.SceneFormatException;
+import io.github.firestormfmd.scenescripter.core.math.BlockBox;
+import io.github.firestormfmd.scenescripter.core.math.BlockPos;
 import io.github.firestormfmd.scenescripter.core.scene.Scene;
 import io.github.firestormfmd.scenescripter.server.SceneManager;
 import io.github.firestormfmd.scenescripter.server.SceneSession;
@@ -99,7 +101,46 @@ public final class SceneCommands {
 				.then(literal("export").executes(ctx -> withSession(ctx, s -> {
 					Path out = SceneManager.get().orElseThrow().storage().export(s.name(), s.scene());
 					return "Exported to " + out;
-				}))));
+				})))
+				.then(literal("apply")
+						.executes(ctx -> withSession(ctx, s -> "This keeps the scene's block changes up to tick "
+								+ s.clock().tick() + " in the world for good. Run /scene apply confirm to do it."))
+						.then(literal("confirm").executes(ctx -> withSession(ctx, s -> {
+							s.applyToWorld();
+							return "The scene's block changes up to tick " + s.clock().tick() + " are now part of the world";
+						}))))
+				.then(literal("bounds")
+						.then(literal("fit").executes(ctx -> withSession(ctx, s -> {
+							s.fitBounds(8);
+							return "Bounds: " + describe(s.scene().bounds());
+						})))
+						.then(literal("clear").executes(ctx -> withSession(ctx, s -> {
+							s.setBounds(null);
+							return "Bounds cleared; no chunks are kept loaded";
+						})))
+						.then(argument("x1", IntegerArgumentType.integer()).then(argument("y1", IntegerArgumentType.integer())
+								.then(argument("z1", IntegerArgumentType.integer()).then(argument("x2", IntegerArgumentType.integer())
+										.then(argument("y2", IntegerArgumentType.integer()).then(argument("z2", IntegerArgumentType.integer())
+												.executes(ctx -> withSession(ctx, s -> {
+													s.setBounds(box(ctx));
+													return "Bounds: " + describe(s.scene().bounds());
+												})))))))));
+	}
+
+	private static BlockBox box(CommandContext<CommandSourceStack> ctx) {
+		int x1 = IntegerArgumentType.getInteger(ctx, "x1");
+		int y1 = IntegerArgumentType.getInteger(ctx, "y1");
+		int z1 = IntegerArgumentType.getInteger(ctx, "z1");
+		int x2 = IntegerArgumentType.getInteger(ctx, "x2");
+		int y2 = IntegerArgumentType.getInteger(ctx, "y2");
+		int z2 = IntegerArgumentType.getInteger(ctx, "z2");
+		return new BlockBox(new BlockPos(Math.min(x1, x2), Math.min(y1, y2), Math.min(z1, z2)),
+				new BlockPos(Math.max(x1, x2), Math.max(y1, y2), Math.max(z1, z2)));
+	}
+
+	private static String describe(BlockBox b) {
+		return b == null ? "none" : b.min().x() + " " + b.min().y() + " " + b.min().z() + " to "
+				+ b.max().x() + " " + b.max().y() + " " + b.max().z();
 	}
 
 	@FunctionalInterface

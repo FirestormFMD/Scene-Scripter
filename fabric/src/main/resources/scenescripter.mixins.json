@@ -3,6 +3,7 @@
 	"package": "io.github.firestormfmd.scenescripter.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [
+		"AbstractArrowAccessor",
 		"ChunkMapMixin",
 		"CollidableOverridesMixin",
 		"EntityMixin",

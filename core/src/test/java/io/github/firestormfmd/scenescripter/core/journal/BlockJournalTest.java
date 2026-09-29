@@ -145,4 +145,32 @@ class BlockJournalTest {
 		assertEquals("glass", world.get(B));
 		assertEquals("air", world.get(A));
 	}
+
+	@Test
+	void originalsGiveTheBaseState() {
+		World world = new World();
+		world.set(A, "gold");
+		BlockJournal<String> journal = new BlockJournal<>(JournalStore.none());
+		journal.setChangeSets(List.of(set("boom", 10, A, "air"), set("build", 20, A, "glass", B, "glass")), world);
+		journal.seek(30, world);
+		assertEquals(Map.of(A, "gold", B, "stone"), journal.originals());
+		assertEquals("air", journal.replacedBy("build", A).orElseThrow());
+		assertTrue(journal.replacedBy("nothing", A).isEmpty());
+	}
+
+	@Test
+	void commitKeepsChangesAndMakesThemTheNewBase() {
+		World world = new World();
+		world.set(A, "gold");
+		BlockJournal<String> journal = new BlockJournal<>(JournalStore.none());
+		journal.setChangeSets(List.of(set("boom", 10, A, "air")), world);
+		journal.seek(30, world);
+		journal.commit();
+		assertTrue(journal.atBaseState());
+		journal.revertAll(world);
+		assertEquals("air", world.get(A), "committed changes are not undone");
+		journal.seek(30, world);
+		journal.seek(0, world);
+		assertEquals("air", world.get(A));
+	}
 }

@@ -42,13 +42,22 @@ public final class BuiltInChannels {
 	public static final ChannelSpec<String> FEET = new ChannelSpec<>("equipment.feet", ValueType.ITEM, "");
 	public static final ChannelSpec<Boolean> AMBIENT_SOUNDS = new ChannelSpec<>("ambient_sounds", ValueType.BOOL, true);
 	public static final ChannelSpec<Boolean> SILENT = new ChannelSpec<>("silent", ValueType.BOOL, false);
+	/**
+	 * Takes the object out of the scene without a death, such as a TNT that has exploded or an arrow that hit
+	 * something. The solver keys it for explosions and projectiles.
+	 */
+	public static final ChannelSpec<Boolean> REMOVED = new ChannelSpec<>("removed", ValueType.BOOL, false);
+	/** ID of the object this one rides, or empty. Keyed by mount and dismount. */
+	public static final ChannelSpec<String> VEHICLE = new ChannelSpec<>("vehicle", ValueType.TEXT, "");
+	/** Creeper swelling towards an explosion; keyed by ignite events. */
+	public static final ChannelSpec<Boolean> IGNITED = new ChannelSpec<>("ignited", ValueType.BOOL, false);
 
 	private static final Map<String, ChannelSpec<?>> BY_NAME = new LinkedHashMap<>();
 
 	static {
 		for (ChannelSpec<?> spec : new ChannelSpec<?>[] {POSITION, OFFSET, BODY_YAW, HEAD_YAW, HEAD_PITCH, LOOK_AT, HEALTH, DEAD,
 				POSE, SNEAKING, SPRINTING, ON_FIRE, GLOWING, INVISIBLE, SCALE, CUSTOM_NAME, NAME_VISIBLE, MAINHAND,
-				OFFHAND, HEAD, CHEST, LEGS, FEET, AMBIENT_SOUNDS, SILENT}) {
+				OFFHAND, HEAD, CHEST, LEGS, FEET, AMBIENT_SOUNDS, SILENT, REMOVED, VEHICLE, IGNITED}) {
 			BY_NAME.put(spec.name(), spec);
 		}
 	}

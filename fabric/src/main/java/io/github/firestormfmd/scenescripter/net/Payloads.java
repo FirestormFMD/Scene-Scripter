@@ -104,6 +104,10 @@ public final class Payloads {
 		public static final int CLOSE = 3;
 		public static final int LIST = 4;
 		public static final int DELETE = 5;
+		/** Makes the scene's block changes up to the playhead permanent. */
+		public static final int APPLY = 6;
+		/** Fits the scene bounds around everything in the scene. */
+		public static final int FIT_BOUNDS = 7;
 
 		public static final Type<SceneCommand> TYPE = payloadType("scene_command");
 		public static final StreamCodec<FriendlyByteBuf, SceneCommand> CODEC = StreamCodec.of(

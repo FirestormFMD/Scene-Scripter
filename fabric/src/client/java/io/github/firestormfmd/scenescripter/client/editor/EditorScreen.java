@@ -45,6 +45,8 @@ public final class EditorScreen extends Screen {
 	private @Nullable EditBox field;
 	private @Nullable Consumer<String> fieldCommit;
 	private String status = "";
+	/** The Apply button was clicked once and waits for a second click. */
+	private boolean confirmApply;
 	private int statusTicks;
 
 	public EditorScreen() {
@@ -205,6 +207,23 @@ public final class EditorScreen extends Screen {
 			});
 			x += 44;
 			ui.button(x, 3, 42, 14, "Path", EditorState.tool == EditorState.Tool.PATH, () -> setTool(EditorState.Tool.PATH));
+			x += 44;
+			ui.button(x, 3, 44, 14, "Blocks", EditorState.tool == EditorState.Tool.BLOCKS, () -> setTool(EditorState.Tool.BLOCKS));
+			x += 50;
+			ui.button(x, 3, 44, 14, "Bounds", false, () -> {
+				ClientNet.sceneCommand(Payloads.SceneCommand.FIT_BOUNDS, "", 0);
+				status("Scene bounds fitted around everything; their chunks stay loaded");
+			});
+			x += 46;
+			ui.button(x, 3, 40, 14, confirmApply ? "Sure?" : "Apply", confirmApply, () -> {
+				if (confirmApply) {
+					ClientNet.sceneCommand(Payloads.SceneCommand.APPLY, "", 0);
+					confirmApply = false;
+				} else {
+					confirmApply = true;
+					status("Apply keeps the scene's block changes up to the playhead for good. Click again to confirm");
+				}
+			});
 		}
 		String help = "RMB: fly  Space: play  I: key  Del: delete  Ctrl+Z/Y  Right Ctrl: close";
 		ui.text(ui.fit(help, Math.max(0, width - x - 60)), Math.max(x + 50, width - ui.width(help) - 6), 6, Ui.TEXT_DIM);
@@ -212,6 +231,7 @@ public final class EditorScreen extends Screen {
 
 	void setTool(EditorState.Tool tool) {
 		EditorState.tool = tool;
+		confirmApply = false;
 		if (tool != EditorState.Tool.PATH) {
 			EditorState.pathDraft.clear();
 		}
@@ -222,6 +242,7 @@ public final class EditorScreen extends Screen {
 			case SELECT -> "Select: click an actor; drag to move it and key its position";
 			case PLACE -> "Place: pick a type, then click the ground";
 			case PATH -> "Path: click the ground to add points, Enter to finish (Tab for an air path)";
+			case BLOCKS -> "Blocks: the selected object breaks, places or uses the clicked block at the playhead";
 		});
 	}
 

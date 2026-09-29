@@ -185,6 +185,7 @@ public final class SceneCodec {
 		life.add(obj.despawnTick());
 		o.add("life", life);
 		if (obj.group() != null) o.addProperty("group", obj.group());
+		if (obj.generatedBy() != null) o.addProperty("gen", obj.generatedBy());
 
 		JsonArray motion = new JsonArray();
 		for (MotionClip c : obj.motion()) {
@@ -463,6 +464,7 @@ public final class SceneCodec {
 			obj.setLifetime(life.get(0).getAsInt(), life.get(1).getAsInt());
 		}
 		if (o.has("group")) obj.setGroup(str(o, "group"));
+		if (o.has("gen")) obj.setGeneratedBy(str(o, "gen"));
 		for (JsonElement e : array(o, "motion")) {
 			JsonObject co = e.getAsJsonObject();
 			TimingMode timing = TimingMode.byId(str(co, "timing"));

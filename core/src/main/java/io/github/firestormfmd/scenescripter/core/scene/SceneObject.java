@@ -24,6 +24,8 @@ public final class SceneObject {
 	/** Tick the object leaves the scene, or -1 to stay until the end. */
 	private int despawnTick = -1;
 	private String group;
+	/** ID of the event whose solved result created this object, such as a chain-reaction TNT, or null. */
+	private String generatedBy;
 	private final List<MotionClip> motion = new ArrayList<>();
 	private final Map<String, Channel<?>> channels = new LinkedHashMap<>();
 	private final List<SceneEvent> events = new ArrayList<>();
@@ -91,6 +93,18 @@ public final class SceneObject {
 
 	public void setGroup(String group) {
 		this.group = group;
+	}
+
+	public String generatedBy() {
+		return generatedBy;
+	}
+
+	public void setGeneratedBy(String generatedBy) {
+		this.generatedBy = generatedBy;
+	}
+
+	public boolean isGenerated() {
+		return generatedBy != null;
 	}
 
 	/** Motion clips sorted by start tick. */
@@ -180,6 +194,7 @@ public final class SceneObject {
 		o.spawnTick = spawnTick;
 		o.despawnTick = despawnTick;
 		o.group = group;
+		o.generatedBy = generatedBy;
 		o.motion.addAll(motion);
 		channels.forEach((k, v) -> o.channels.put(k, v.copy()));
 		o.events.addAll(events);

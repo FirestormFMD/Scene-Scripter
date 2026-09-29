@@ -41,6 +41,8 @@ public final class SceneEvaluator {
 	/** How far the head can turn from the body, in degrees, like a real mob's neck. */
 	private static final float MAX_HEAD_TURN = 75;
 	private static final int MAX_LOOK_AT_DEPTH = 4;
+	/** Rider height above the vehicle's feet, as a fraction of the vehicle's height. */
+	private static final double RIDER_HEIGHT = 0.75;
 
 	private final Scene scene;
 	private final BodyProvider bodies;
@@ -136,6 +138,26 @@ public final class SceneEvaluator {
 
 		position = position.add(value(o, BuiltInChannels.OFFSET, tick));
 
+		String vehicle = value(o, BuiltInChannels.VEHICLE, tick).trim();
+		if (!vehicle.isEmpty() && depth < MAX_LOOK_AT_DEPTH) {
+			Optional<SceneObject> ridden = scene.object(vehicle);
+			if (ridden.isPresent() && ridden.get() != o) {
+				ObjectState v = evaluate(ridden.get(), tick, depth + 1);
+				if (v.exists()) {
+					// Close to where vanilla seats a rider; the server lets the game place real riders exactly.
+					position = v.position().add(0, bodies.bodyFor(ridden.get()).height() * RIDER_HEIGHT, 0);
+					if (active == null) {
+						bodyYaw = v.bodyYaw();
+					}
+					onGround = false;
+				} else {
+					vehicle = "";
+				}
+			} else {
+				vehicle = "";
+			}
+		}
+
 		float headYaw = bodyYaw + (float) (double) value(o, BuiltInChannels.HEAD_YAW, tick);
 		float headPitch = (float) (double) value(o, BuiltInChannels.HEAD_PITCH, tick);
 		String lookAt = value(o, BuiltInChannels.LOOK_AT, tick);
@@ -174,7 +196,7 @@ public final class SceneEvaluator {
 
 		return new ObjectState(
 				o.id(),
-				o.existsAt(tick),
+				o.existsAt(tick) && !value(o, BuiltInChannels.REMOVED, tick),
 				position,
 				bodyYaw,
 				headYaw,
@@ -198,6 +220,7 @@ public final class SceneEvaluator {
 				dead ? ticksSinceBecameTrue(o, BuiltInChannels.DEAD, tick) : -1,
 				value(o, BuiltInChannels.AMBIENT_SOUNDS, tick),
 				value(o, BuiltInChannels.SILENT, tick),
+				vehicle,
 				extra);
 	}
 

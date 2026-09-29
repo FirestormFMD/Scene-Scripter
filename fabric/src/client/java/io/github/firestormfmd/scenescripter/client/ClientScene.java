@@ -34,6 +34,16 @@ public final class ClientScene {
 	private static final Map<Integer, String> actorsByEntity = new HashMap<>();
 	private static List<String> sceneList = List.of();
 	private static List<AttackLine> attacks = List.of();
+	private static List<Blast> explosions = List.of();
+
+	/**
+	 * An explosion the scene sets off, for previewing what it will break.
+	 *
+	 * @param blocks x, y, z of each block it breaks, flattened
+	 */
+	public record Blast(String eventId, String owner, int tick, io.github.firestormfmd.scenescripter.core.math.Vec3 center,
+			float power, int[] blocks) {
+	}
 
 	/** How one attack resolved, for drawing hit and miss lines. */
 	public record AttackLine(String eventId, String attacker, @Nullable String target, int tick, boolean hit,
@@ -69,6 +79,10 @@ public final class ClientScene {
 		return attacks;
 	}
 
+	public static List<Blast> explosions() {
+		return explosions;
+	}
+
 	public static List<String> sceneList() {
 		return sceneList;
 	}
@@ -97,6 +111,7 @@ public final class ClientScene {
 				name = null;
 				scene = null;
 				attacks = List.of();
+				explosions = List.of();
 			} else {
 				java.util.List<AttackLine> lines = new java.util.ArrayList<>();
 				if (o.has("attacks")) {
@@ -108,6 +123,24 @@ public final class ClientScene {
 					}
 				}
 				attacks = List.copyOf(lines);
+				java.util.List<Blast> blasts = new java.util.ArrayList<>();
+				if (o.has("explosions")) {
+					for (var el : o.getAsJsonArray("explosions")) {
+						JsonObject b = el.getAsJsonObject();
+						var arr = b.getAsJsonArray("blocks");
+						int[] blocks = new int[arr.size()];
+						for (int i = 0; i < blocks.length; i++) {
+							blocks[i] = arr.get(i).getAsInt();
+						}
+						try {
+							blasts.add(new Blast(b.get("event").getAsString(), b.get("owner").getAsString(),
+									b.get("tick").getAsInt(), SceneCodec.readVec(b.get("center")), b.get("power").getAsFloat(), blocks));
+						} catch (RuntimeException e) {
+							SceneScripter.LOGGER.warn("Bad explosion preview from the server", e);
+						}
+					}
+				}
+				explosions = List.copyOf(blasts);
 				try {
 					scene = SceneCodec.fromJson(o.getAsJsonObject("scene"));
 					name = o.get("name").getAsString();

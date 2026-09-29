@@ -4,12 +4,15 @@ import java.util.List;
 import java.util.Optional;
 
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.TicketType;
+import net.minecraft.world.level.ChunkPos;
 
 import io.github.firestormfmd.scenescripter.actor.Actors;
 import io.github.firestormfmd.scenescripter.core.edit.EditOp;
 import io.github.firestormfmd.scenescripter.core.edit.UndoStack;
 import io.github.firestormfmd.scenescripter.core.journal.BlockJournal;
 import io.github.firestormfmd.scenescripter.core.journal.ChangeSet;
+import io.github.firestormfmd.scenescripter.core.math.BlockBox;
 import io.github.firestormfmd.scenescripter.core.runtime.EventWindow;
 import io.github.firestormfmd.scenescripter.core.runtime.PlaybackClock;
 import io.github.firestormfmd.scenescripter.core.runtime.SceneEvaluator;
@@ -31,6 +34,12 @@ public final class SceneSession {
 	private final EventPlayer events;
 	private final Solver solver;
 	private List<Solver.AttackResult> attackResults = List.of();
+	private List<Solver.ExplosionResult> explosions = List.of();
+	private List<ChangeSet<SavedBlock>> changeSets = List.of();
+	/** Keeps the scene's chunks loaded and ticking without saving the ticket with the world. */
+	private static final TicketType SCENE_TICKET = new TicketType(0L,
+			TicketType.FLAG_LOADING | TicketType.FLAG_SIMULATION | TicketType.FLAG_KEEP_DIMENSION_ACTIVE);
+	private final List<ChunkPos> loadedChunks = new java.util.ArrayList<>();
 	private long appliedRevision = -1;
 	private long savedRevision;
 	private boolean actorListChanged = true;
@@ -47,7 +56,7 @@ public final class SceneSession {
 		this.blocks = new WorldBlocks(level);
 		this.actors = new ActorController(level);
 		this.events = new EventPlayer(this);
-		this.solver = new Solver(new WorldCombat(level));
+		this.solver = new Solver(new WorldCombat(level, false));
 		this.savedRevision = history.revision();
 		Actors.setTrackingRange(scene.settings().trackingRange());
 	}
@@ -93,6 +102,15 @@ public final class SceneSession {
 		return attackResults;
 	}
 
+	/** Every explosion the scene sets off, with the blocks it breaks. */
+	public List<Solver.ExplosionResult> explosions() {
+		return explosions;
+	}
+
+	public java.util.Optional<Solver.ExplosionResult> explosion(String eventId) {
+		return explosions.stream().filter(e -> e.eventId().equals(eventId)).findFirst();
+	}
+
 	public boolean isDirty() {
 		return history.revision() != savedRevision;
 	}
@@ -128,12 +146,103 @@ public final class SceneSession {
 
 	private void refreshAfterEdit() {
 		appliedRevision = history.revision();
-		evaluator.setTerrain(new LevelTerrain(level(), scene.settings().groundFilter()));
-		attackResults = solver.solve(scene, evaluator);
+		VirtualWorld world = new VirtualWorld(level(), journal.originals());
+		evaluator.setTerrain(new LevelTerrain(level(), scene.settings().groundFilter(), world::baseState));
+		Solver.Solution solution = solver.solve(scene, evaluator, world);
+		attackResults = solution.attacks();
+		explosions = solution.explosions();
+		changeSets = world.changeSets();
 		clock.setLength(scene.length());
 		Actors.setTrackingRange(scene.settings().trackingRange());
-		journal.setChangeSets(bakedBlockChanges(), blocks);
+		updateChunkTickets();
+		journal.setChangeSets(changeSets, blocks);
 		actorListChanged |= actors.update(evaluator, clock.tick(), true);
+	}
+
+	/** Loads the chunks inside the scene bounds for as long as the scene is open. */
+	private void updateChunkTickets() {
+		List<ChunkPos> wanted = new java.util.ArrayList<>();
+		BlockBox bounds = scene.bounds();
+		if (bounds != null) {
+			for (int cx = bounds.min().x() >> 4; cx <= bounds.max().x() >> 4; cx++) {
+				for (int cz = bounds.min().z() >> 4; cz <= bounds.max().z() >> 4; cz++) {
+					wanted.add(new ChunkPos(cx, cz));
+					if (wanted.size() > 1024) {
+						break;
+					}
+				}
+			}
+		}
+		if (wanted.equals(loadedChunks)) {
+			return;
+		}
+		releaseChunks();
+		for (ChunkPos pos : wanted) {
+			level().getChunkSource().addTicketWithRadius(SCENE_TICKET, pos, 0);
+		}
+		loadedChunks.addAll(wanted);
+	}
+
+	private void releaseChunks() {
+		for (ChunkPos pos : loadedChunks) {
+			level().getChunkSource().removeTicketWithRadius(SCENE_TICKET, pos, 0);
+		}
+		loadedChunks.clear();
+	}
+
+	/**
+	 * Sets the scene bounds to a box around everything the scene uses: every object's positions over the whole
+	 * timeline, every path point and every crater, plus a margin.
+	 */
+	public void fitBounds(int margin) {
+		int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
+		int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
+		List<io.github.firestormfmd.scenescripter.core.math.Vec3> points = new java.util.ArrayList<>();
+		for (var o : scene.objects()) {
+			for (int t = 0; t <= scene.length(); t += 10) {
+				var st = evaluator.evaluate(o, t);
+				if (st.exists()) {
+					points.add(st.position());
+				}
+			}
+		}
+		for (var p : scene.paths()) {
+			p.points().forEach(pt -> points.add(pt.pos()));
+		}
+		for (var e : explosions) {
+			points.add(e.center().add(-e.power() * 2, -e.power() * 2, -e.power() * 2));
+			points.add(e.center().add(e.power() * 2, e.power() * 2, e.power() * 2));
+		}
+		if (points.isEmpty()) {
+			return;
+		}
+		for (var v : points) {
+			minX = Math.min(minX, (int) Math.floor(v.x()));
+			minY = Math.min(minY, (int) Math.floor(v.y()));
+			minZ = Math.min(minZ, (int) Math.floor(v.z()));
+			maxX = Math.max(maxX, (int) Math.floor(v.x()));
+			maxY = Math.max(maxY, (int) Math.floor(v.y()));
+			maxZ = Math.max(maxZ, (int) Math.floor(v.z()));
+		}
+		setBounds(new BlockBox(new io.github.firestormfmd.scenescripter.core.math.BlockPos(minX - margin, minY - margin, minZ - margin),
+				new io.github.firestormfmd.scenescripter.core.math.BlockPos(maxX + margin, maxY + margin, maxZ + margin)));
+	}
+
+	/** Sets or clears (null) the stage box whose chunks stay loaded while the scene is open. */
+	public void setBounds(BlockBox bounds) {
+		var h = io.github.firestormfmd.scenescripter.core.edit.Edits.SetSceneHeader.of(scene);
+		perform(new io.github.firestormfmd.scenescripter.core.edit.Edits.SetSceneHeader(h.name(), h.length(), h.origin(),
+				bounds, h.settings()));
+	}
+
+	/**
+	 * Makes the scene's block changes up to the playhead permanent. They stay in the world and become part of the
+	 * scene's starting state.
+	 */
+	public void applyToWorld() {
+		journal.commit();
+		appliedRevision = -1;
+		stateChanged = true;
 	}
 
 	private void applyStep(PlaybackClock.Step step) {
@@ -147,8 +256,8 @@ public final class SceneSession {
 	}
 
 	/** Block changes the scene makes, from explosions and block events. */
-	private List<ChangeSet<SavedBlock>> bakedBlockChanges() {
-		return events.blockChanges();
+	public List<ChangeSet<SavedBlock>> changeSets() {
+		return changeSets;
 	}
 
 	public void perform(EditOp op) {
@@ -196,5 +305,6 @@ public final class SceneSession {
 		clock.pause();
 		actors.removeAll();
 		journal.revertAll(blocks);
+		releaseChunks();
 	}
 }

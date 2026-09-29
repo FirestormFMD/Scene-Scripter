@@ -24,13 +24,23 @@ import io.github.firestormfmd.scenescripter.core.scene.GroundFilter;
  */
 public final class LevelTerrain implements TerrainView {
 	private final Level level;
+	private final java.util.function.Function<BlockPos, BlockState> states;
 	private final Set<Block> includeBlocks = new HashSet<>();
 	private final Set<TagKey<Block>> includeTags = new HashSet<>();
 	private final Set<Block> excludeBlocks = new HashSet<>();
 	private final Set<TagKey<Block>> excludeTags = new HashSet<>();
 
 	public LevelTerrain(Level level, GroundFilter filter) {
+		this(level, filter, level::getBlockState);
+	}
+
+	/**
+	 * @param states where block states come from, such as the scene's base state so paths do not change when the
+	 *               playhead passes an explosion
+	 */
+	public LevelTerrain(Level level, GroundFilter filter, java.util.function.Function<BlockPos, BlockState> states) {
 		this.level = level;
+		this.states = states;
 		compile(filter.include(), includeBlocks, includeTags);
 		compile(filter.exclude(), excludeBlocks, excludeTags);
 	}
@@ -69,7 +79,7 @@ public final class LevelTerrain implements TerrainView {
 		if (!level.isLoaded(pos)) {
 			return Double.NaN;
 		}
-		BlockState state = level.getBlockState(pos);
+		BlockState state = states.apply(pos);
 		if (state.isAir() || matches(state, excludeBlocks, excludeTags)) {
 			return Double.NaN;
 		}
@@ -86,7 +96,7 @@ public final class LevelTerrain implements TerrainView {
 		if (!level.isLoaded(pos)) {
 			return false;
 		}
-		BlockState state = level.getBlockState(pos);
+		BlockState state = states.apply(pos);
 		return !state.isAir() && !state.getCollisionShape(level, pos).isEmpty();
 	}
 
@@ -96,7 +106,7 @@ public final class LevelTerrain implements TerrainView {
 		if (!level.isLoaded(pos)) {
 			return Double.NaN;
 		}
-		FluidState fluid = level.getBlockState(pos).getFluidState();
+		FluidState fluid = states.apply(pos).getFluidState();
 		return fluid.isEmpty() ? Double.NaN : fluid.getHeight(level, pos);
 	}
 }

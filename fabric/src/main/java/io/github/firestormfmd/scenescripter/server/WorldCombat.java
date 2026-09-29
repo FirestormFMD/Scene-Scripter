@@ -20,9 +20,18 @@ import io.github.firestormfmd.scenescripter.core.scene.SceneObject;
  */
 public final class WorldCombat implements CombatModel {
 	private final ServerLevel level;
+	private final boolean checkSight;
 
 	public WorldCombat(ServerLevel level) {
+		this(level, true);
+	}
+
+	/**
+	 * @param checkSight ray cast the live level for line of sight; off when the solver's virtual world does it
+	 */
+	public WorldCombat(ServerLevel level, boolean checkSight) {
 		this.level = level;
+		this.checkSight = checkSight;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -68,7 +77,20 @@ public final class WorldCombat implements CombatModel {
 	}
 
 	@Override
+	public boolean isLiving(SceneObject object) {
+		return attributes(object).isPresent();
+	}
+
+	@Override
+	public double explosionKnockbackResistance(SceneObject object) {
+		return attribute(object, Attributes.EXPLOSION_KNOCKBACK_RESISTANCE, 0);
+	}
+
+	@Override
 	public boolean lineOfSight(Vec3 from, Vec3 to) {
+		if (!checkSight) {
+			return true;
+		}
 		net.minecraft.world.phys.Vec3 a = new net.minecraft.world.phys.Vec3(from.x(), from.y(), from.z());
 		net.minecraft.world.phys.Vec3 b = new net.minecraft.world.phys.Vec3(to.x(), to.y(), to.z());
 		HitResult hit = level.clip(new ClipContext(a, b, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE,

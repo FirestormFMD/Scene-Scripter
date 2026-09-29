@@ -205,6 +205,38 @@ final class Inspector {
 			label("Draw a path to make this walk.");
 		}
 
+		if (o.entityType().equals("minecraft:tnt") || o.entityType().equals("minecraft:creeper")
+				|| o.entityType().equals("minecraft:end_crystal") || o.entityType().equals("minecraft:fireball")) {
+			heading("Explosion");
+			boolean tnt = o.entityType().equals("minecraft:tnt");
+			boolean creeper = o.entityType().equals("minecraft:creeper");
+			if (tnt || creeper) {
+				String fuse = o.appearance().getOrDefault("fuse", tnt ? "80" : "30");
+				int fuseY = rowY;
+				row("Fuse", fuse + " ticks", false, () -> editAt(fuseY, fuse, v -> EditActions.change(o, "Set fuse",
+						c -> c.appearance().put("fuse", v.trim()))), null);
+			}
+			String power = o.appearance().getOrDefault("power", "");
+			int powerY = rowY;
+			row("Power", power.isEmpty() ? "default" : power, false, () -> editAt(powerY, power,
+					v -> EditActions.change(o, "Set power", c -> {
+						if (v.isBlank()) {
+							c.appearance().remove("power");
+						} else {
+							c.appearance().put("power", v.trim());
+						}
+					})), null);
+			if (creeper) {
+				boolean charged = "true".equals(o.appearance().get("powered"));
+				row("Charged", charged ? "yes" : "no", false, () -> EditActions.change(o, "Toggle charged",
+						c -> c.appearance().put("powered", Boolean.toString(!charged))), null);
+			}
+			if (tnt) {
+				label("Explodes when its fuse runs out unless an");
+				label("explode event comes first.");
+			}
+		}
+
 		heading("Events");
 		if (visible()) {
 			Ui ui = screen.ui();
@@ -215,7 +247,20 @@ final class Inspector {
 				ui.button(x + 6 + i * (bw + 2), rowY, bw, 11, type, false, () -> EventTools.add(o, type, tick));
 			}
 		}
-		rowY += 14;
+		rowY += 13;
+		if (visible()) {
+			Ui ui = screen.ui();
+			int bw = (w - 18) / 4;
+			String[] types = {"shoot", "explode", "ignite", "swing"};
+			for (int i = 0; i < types.length; i++) {
+				String type = types[i];
+				ui.button(x + 6 + i * (bw + 2), rowY, bw, 11, type, false, () -> EventTools.add(o, type, tick));
+			}
+		}
+		rowY += 13;
+		String vehicle = EditActions.valueNow(o, BuiltInChannels.VEHICLE);
+		row("Riding", vehicle.isEmpty() ? "nothing (mount nearest)" : vehicle + " (dismount)", EditActions.hasKeyNow(o, "vehicle"),
+				() -> EventTools.add(o, vehicle.isEmpty() ? "mount" : "dismount", tick), null);
 		for (var e : o.events()) {
 			if (!visible()) {
 				rowY += Ui.ROW_HEIGHT;

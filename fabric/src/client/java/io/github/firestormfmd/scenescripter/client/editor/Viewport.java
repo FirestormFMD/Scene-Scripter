@@ -54,6 +54,11 @@ final class Viewport {
 			case PLACE -> "Click the ground to place: " + EditActions.prettyName(EditorState.placeType);
 			case PATH -> (EditorState.pathDraftAir ? "Air path" : "Ground path") + ": " + EditorState.pathDraft.size()
 					+ " points. Click to add, Enter to finish, Tab switches ground/air, Esc cancels";
+			case BLOCKS -> "Click a block: " + switch (EditorState.blockAction) {
+				case BREAK -> "break it";
+				case PLACE -> "place " + EditorState.blockState + " on it";
+				case USE -> "use it (doors, levers, buttons)";
+			} + ".  1 break  2 place  3 use  B set block";
 		};
 		int hx = screen.viewportX() + 6;
 		int hy = screen.viewportY() + screen.viewportHeight() - 14;
@@ -107,8 +112,37 @@ final class Viewport {
 					EditorState.pathDraft.add(EditorState.pathDraftAir ? at.add(0, AIR_HEIGHT, 0) : at);
 				}
 			}
+			case BLOCKS -> blockClick(ray);
 		}
 		return true;
+	}
+
+	/** Adds a block event on the selected object for the block under the mouse. */
+	private void blockClick(Picking.Ray ray) {
+		SceneObject o = ClientScene.object(EditorState.selectedObject).orElse(null);
+		if (o == null) {
+			screen.status("Select the object that does it first");
+			return;
+		}
+		var hit = Picking.pickBlock(ray).orElse(null);
+		if (hit == null) {
+			return;
+		}
+		int tick = ClientScene.tick();
+		switch (EditorState.blockAction) {
+			case BREAK -> {
+				EventTools.block(o, "break_block", hit.getBlockPos(), null, tick);
+				screen.status("Break at tick " + tick);
+			}
+			case PLACE -> {
+				EventTools.block(o, "place_block", hit.getBlockPos().relative(hit.getDirection()), EditorState.blockState, tick);
+				screen.status("Place " + EditorState.blockState + " at tick " + tick);
+			}
+			case USE -> {
+				EventTools.block(o, "use_block", hit.getBlockPos(), null, tick);
+				screen.status("Use at tick " + tick);
+			}
+		}
 	}
 
 	/** Finds a control point of the selected path close to the mouse ray. */
@@ -196,6 +230,29 @@ final class Viewport {
 			if (key == GLFW.GLFW_KEY_TAB) {
 				EditorState.pathDraftAir = !EditorState.pathDraftAir;
 				return true;
+			}
+		}
+		if (EditorState.tool == EditorState.Tool.BLOCKS) {
+			switch (key) {
+				case GLFW.GLFW_KEY_1 -> {
+					EditorState.blockAction = EditorState.BlockAction.BREAK;
+					return true;
+				}
+				case GLFW.GLFW_KEY_2 -> {
+					EditorState.blockAction = EditorState.BlockAction.PLACE;
+					return true;
+				}
+				case GLFW.GLFW_KEY_3 -> {
+					EditorState.blockAction = EditorState.BlockAction.USE;
+					return true;
+				}
+				case GLFW.GLFW_KEY_B -> {
+					screen.editText(screen.viewportX() + 6, screen.viewportY() + 6, 200, EditorState.blockState,
+							v -> EditorState.blockState = v.trim().isEmpty() ? "minecraft:stone" : v.trim());
+					return true;
+				}
+				default -> {
+				}
 			}
 		}
 		if (key == GLFW.GLFW_KEY_R) {

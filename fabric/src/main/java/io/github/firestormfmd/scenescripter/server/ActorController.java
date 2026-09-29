@@ -1,5 +1,15 @@
 package io.github.firestormfmd.scenescripter.server;
 
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.entity.item.PrimedTnt;
+import net.minecraft.world.entity.monster.Creeper;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
+
+import io.github.firestormfmd.scenescripter.core.scene.BuiltInChannels;
+import io.github.firestormfmd.scenescripter.core.scene.SceneEvent;
+import io.github.firestormfmd.scenescripter.mixin.AbstractArrowAccessor;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -36,6 +46,9 @@ public final class ActorController {
 	private static final int DEATH_ANIMATION_TICKS = 20;
 	/** Entity event that makes clients spawn the death poof particles. */
 	private static final byte POOF_EVENT = 60;
+	/** Thrown items that burst into particles where they land. */
+	private static final Set<String> BREAKS_ON_IMPACT = Set.of("minecraft:snowball", "minecraft:egg",
+			"minecraft:splash_potion", "minecraft:lingering_potion", "minecraft:experience_bottle", "minecraft:ender_pearl");
 
 	private final ServerLevel level;
 	private final Map<String, Entity> actors = new LinkedHashMap<>();
@@ -88,6 +101,10 @@ public final class ActorController {
 					if (gone && !jump) {
 						level.broadcastEntityEvent(e, POOF_EVENT);
 					}
+					if (!jump && !s.dead() && BREAKS_ON_IMPACT.contains(o.entityType())) {
+						// Snowballs, eggs and potions break into item particles where they land.
+						level.broadcastEntityEvent(e, (byte) 3);
+					}
 					discard(o.id());
 					changed = true;
 				}
@@ -108,11 +125,13 @@ public final class ActorController {
 				jump = true;
 			}
 			ActorApplier.apply(level, e, s, jump);
+			typeSpecific(evaluator, o, e, s, tick);
 			wasDead.put(o.id(), s.dead());
 			if (!jump) {
 				ambientEffects(o, e, s, tick);
 			}
 		}
+		ride(evaluator, tick);
 		for (Iterator<String> it = actors.keySet().iterator(); it.hasNext(); ) {
 			String id = it.next();
 			if (!seen.contains(id)) {
@@ -123,6 +142,77 @@ public final class ActorController {
 			}
 		}
 		return changed;
+	}
+
+	/**
+	 * State vanilla keeps in type-specific fields: a TNT's fuse, a creeper's swell, an arrow's flight, a crystal's
+	 * base plate.
+	 */
+	private static void typeSpecific(SceneEvaluator evaluator, SceneObject o, Entity e, ObjectState s, int tick) {
+		if (e instanceof PrimedTnt tnt) {
+			int explodes = explodeTick(o, tick);
+			tnt.setFuse(explodes < 0 ? 80 : Math.max(1, explodes - tick));
+		} else if (e instanceof Creeper creeper) {
+			creeper.setSwellDir(ignited(o, tick) ? 1 : -1);
+		} else if (e instanceof EndCrystal crystal) {
+			crystal.setShowBottom(!"false".equals(o.appearance().get("base")));
+		}
+		if (e instanceof Projectile) {
+			ObjectState next = evaluator.evaluate(o, tick + 1);
+			io.github.firestormfmd.scenescripter.core.math.Vec3 v = next.exists()
+					? next.position().subtract(s.position()) : io.github.firestormfmd.scenescripter.core.math.Vec3.ZERO;
+			boolean flying = v.length() > 1.0e-4;
+			e.setDeltaMovement(new net.minecraft.world.phys.Vec3(v.x(), v.y(), v.z()));
+			if (e instanceof AbstractArrow arrow) {
+				((AbstractArrowAccessor) arrow).scenescripter$setInGround(!flying && tick > o.spawnTick());
+				arrow.setCritArrow(flying && "true".equals(o.appearance().get("crit")));
+			}
+		}
+	}
+
+	/** Tick the object's next explosion plays, or -1. */
+	private static int explodeTick(SceneObject o, int tick) {
+		int best = -1;
+		for (SceneEvent ev : o.events()) {
+			if (ev.type().equals("explode") && ev.tick() >= tick && (best < 0 || ev.tick() < best)) {
+				best = ev.tick();
+			}
+		}
+		return best;
+	}
+
+	private static boolean ignited(SceneObject o, int tick) {
+		return o.channel(BuiltInChannels.IGNITED.name()).map(ch -> Boolean.TRUE.equals(ch.valueAt(tick))).orElse(false);
+	}
+
+	/**
+	 * Seats riders on their vehicles. Vanilla positions passengers while ticking them, which actors never do, so the
+	 * vehicle places each rider here after both have been moved.
+	 */
+	private void ride(SceneEvaluator evaluator, int tick) {
+		for (Map.Entry<String, Entity> entry : actors.entrySet()) {
+			Entity rider = entry.getValue();
+			ObjectState s = evaluator.evaluate(entry.getKey(), tick).orElse(null);
+			if (s == null) {
+				continue;
+			}
+			Entity vehicle = s.vehicle().isEmpty() ? null : actors.get(s.vehicle());
+			if (vehicle == null || vehicle == rider) {
+				if (rider.isPassenger()) {
+					Actors.runAsScene(rider::stopRiding);
+				}
+				continue;
+			}
+			if (rider.getVehicle() != vehicle) {
+				Actors.runAsScene(() -> {
+					rider.stopRiding();
+					rider.startRiding(vehicle, true, false);
+				});
+			}
+			if (rider.getVehicle() == vehicle) {
+				vehicle.positionRider(rider);
+			}
+		}
 	}
 
 	/** Removes every actor, for closing a scene or stopping the server. */
