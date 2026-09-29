@@ -3,7 +3,7 @@ package io.github.firestormfmd.scenescripter.client.editor;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import io.github.firestormfmd.scenescripter.client.ClientScene;
 import io.github.firestormfmd.scenescripter.client.net.ClientNet;
@@ -75,11 +75,11 @@ final class Viewport {
 	boolean mouseClicked(double x, double y, int button) {
 		lastMouseX = x;
 		lastMouseY = y;
-		if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+		if (button == InputConstants.MOUSE_BUTTON_RIGHT) {
 			screen.startLooking();
 			return true;
 		}
-		if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+		if (button != InputConstants.MOUSE_BUTTON_LEFT) {
 			return false;
 		}
 		Scene scene = ClientScene.scene().orElse(null);
@@ -202,7 +202,7 @@ final class Viewport {
 	boolean mouseDragged(double x, double y, int button) {
 		lastMouseX = x;
 		lastMouseY = y;
-		if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+		if (button != InputConstants.MOUSE_BUTTON_LEFT) {
 			return false;
 		}
 		if (Gizmo.dragging != Gizmo.NONE) {
@@ -285,7 +285,7 @@ final class Viewport {
 	}
 
 	boolean mouseReleased(double x, double y, int button) {
-		if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+		if (button != InputConstants.MOUSE_BUTTON_LEFT) {
 			return false;
 		}
 		finishSketch();
@@ -348,30 +348,30 @@ final class Viewport {
 
 	boolean keyPressed(int key) {
 		if (EditorState.tool == EditorState.Tool.PATH) {
-			if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) {
+			if (key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) {
 				finishPath();
 				return true;
 			}
-			if (key == GLFW.GLFW_KEY_TAB) {
+			if (key == InputConstants.KEY_TAB) {
 				EditorState.pathDraftAir = !EditorState.pathDraftAir;
 				return true;
 			}
 		}
 		if (EditorState.tool == EditorState.Tool.BLOCKS) {
 			switch (key) {
-				case GLFW.GLFW_KEY_1 -> {
+				case InputConstants.KEY_1 -> {
 					EditorState.blockAction = EditorState.BlockAction.BREAK;
 					return true;
 				}
-				case GLFW.GLFW_KEY_2 -> {
+				case InputConstants.KEY_2 -> {
 					EditorState.blockAction = EditorState.BlockAction.PLACE;
 					return true;
 				}
-				case GLFW.GLFW_KEY_3 -> {
+				case InputConstants.KEY_3 -> {
 					EditorState.blockAction = EditorState.BlockAction.USE;
 					return true;
 				}
-				case GLFW.GLFW_KEY_B -> {
+				case InputConstants.KEY_B -> {
 					screen.editText(screen.viewportX() + 6, screen.viewportY() + 6, 200, EditorState.blockState,
 							v -> EditorState.blockState = v.trim().isEmpty() ? "minecraft:stone" : v.trim());
 					return true;
@@ -386,7 +386,7 @@ final class Viewport {
 		if (selectedPath != null && EditorState.selectedPoint >= 0 && EditorState.selectedPoint < selectedPath.points().size()) {
 			int i = EditorState.selectedPoint;
 			List<PathPoint> pts = selectedPath.points();
-			if (key == GLFW.GLFW_KEY_N) {
+			if (key == InputConstants.KEY_N) {
 				// A new point halfway to the next one, or beyond the last.
 				Vec3 a = pts.get(i).pos();
 				Vec3 b = i + 1 < pts.size() ? pts.get(i + 1).pos() : a.add(a.subtract(i > 0 ? pts.get(i - 1).pos() : a.add(-2, 0, 0)));
@@ -394,7 +394,7 @@ final class Viewport {
 				EditorState.selectedPoint = i + 1;
 				return true;
 			}
-			if (key == GLFW.GLFW_KEY_H) {
+			if (key == InputConstants.KEY_H) {
 				PathPoint p = pts.get(i);
 				if (p.handleOut() != null) {
 					editPoints(selectedPath, "Automatic curve", list -> list.set(i, PathPoint.at(p.pos())));
@@ -413,7 +413,7 @@ final class Viewport {
 				return true;
 			}
 		}
-		if (key == GLFW.GLFW_KEY_G) {
+		if (key == InputConstants.KEY_G) {
 			EditorState.snap = EditorState.snap.next();
 			screen.status("Snap: " + switch (EditorState.snap) {
 				case OFF -> "off";
@@ -422,7 +422,7 @@ final class Viewport {
 			});
 			return true;
 		}
-		if (key == GLFW.GLFW_KEY_R) {
+		if (key == InputConstants.KEY_R) {
 			SceneObject o = ClientScene.object(EditorState.selectedObject).orElse(null);
 			if (o != null) {
 				double yaw = EditActions.valueNow(o, BuiltInChannels.BODY_YAW);

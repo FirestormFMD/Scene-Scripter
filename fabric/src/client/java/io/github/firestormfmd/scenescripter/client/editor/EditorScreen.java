@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -16,7 +18,6 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.BlockHitResult;
 
 import org.jspecify.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
 
 import io.github.firestormfmd.scenescripter.client.ClientScene;
 import io.github.firestormfmd.scenescripter.client.net.ClientNet;
@@ -447,7 +448,7 @@ public final class EditorScreen extends Screen {
 
 	@Override
 	public boolean mouseReleased(MouseButtonEvent event) {
-		if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT && camera.isLooking()) {
+		if (event.button() == InputConstants.MOUSE_BUTTON_RIGHT && camera.isLooking()) {
 			camera.setLooking(false);
 			return true;
 		}
@@ -473,11 +474,11 @@ public final class EditorScreen extends Screen {
 	public boolean keyPressed(KeyEvent event) {
 		int key = event.key();
 		if (editing()) {
-			if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) {
+			if (key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) {
 				closeField(true);
 				return true;
 			}
-			if (key == GLFW.GLFW_KEY_ESCAPE) {
+			if (key == InputConstants.KEY_ESCAPE) {
 				closeField(false);
 				return true;
 			}
@@ -490,26 +491,26 @@ public final class EditorScreen extends Screen {
 			onClose();
 			return true;
 		}
-		if (key == GLFW.GLFW_KEY_F1) {
+		if (key == InputConstants.KEY_F1) {
 			EditorState.helpOpen = !EditorState.helpOpen;
 			return true;
 		}
-		boolean ctrl = (event.modifiers() & GLFW.GLFW_MOD_CONTROL) != 0;
+		boolean ctrl = (event.modifiers() & InputConstants.MOD_CONTROL) != 0;
 		Scene scene = ClientScene.scene().orElse(null);
-		if (ctrl && key == GLFW.GLFW_KEY_Z) {
+		if (ctrl && key == InputConstants.KEY_Z) {
 			ClientNet.undo();
 			return true;
 		}
-		if (ctrl && key == GLFW.GLFW_KEY_Y) {
+		if (ctrl && key == InputConstants.KEY_Y) {
 			ClientNet.redo();
 			return true;
 		}
-		if (ctrl && key == GLFW.GLFW_KEY_S) {
+		if (ctrl && key == InputConstants.KEY_S) {
 			ClientNet.sceneCommand(Payloads.SceneCommand.SAVE, "", 0);
 			return true;
 		}
 		if (scene != null) {
-			if (key == GLFW.GLFW_KEY_SPACE) {
+			if (key == InputConstants.KEY_SPACE) {
 				if (ClientScene.state().playing()) {
 					ClientNet.pause();
 				} else {
@@ -517,50 +518,50 @@ public final class EditorScreen extends Screen {
 				}
 				return true;
 			}
-			if (key == GLFW.GLFW_KEY_LEFT || key == GLFW.GLFW_KEY_RIGHT) {
-				boolean back = key == GLFW.GLFW_KEY_LEFT;
-				if ((event.modifiers() & GLFW.GLFW_MOD_SHIFT) != 0) {
+			if (key == InputConstants.KEY_LEFT || key == InputConstants.KEY_RIGHT) {
+				boolean back = key == InputConstants.KEY_LEFT;
+				if ((event.modifiers() & InputConstants.MOD_SHIFT) != 0) {
 					ClientNet.seek(nextKeyTick(scene, back));
 				} else {
 					ClientNet.seek(Math.max(0, ClientScene.tick() + (back ? -1 : 1)));
 				}
 				return true;
 			}
-			if (ctrl && key == GLFW.GLFW_KEY_C) {
+			if (ctrl && key == InputConstants.KEY_C) {
 				copyKeys();
 				return true;
 			}
-			if (ctrl && key == GLFW.GLFW_KEY_V) {
+			if (ctrl && key == InputConstants.KEY_V) {
 				pasteKeys();
 				return true;
 			}
-			if (ctrl && key == GLFW.GLFW_KEY_D) {
+			if (ctrl && key == InputConstants.KEY_D) {
 				ClientScene.object(EditorState.selectedObject).filter(o -> !Scene.isTracks(o)).ifPresent(o -> {
 					EditActions.duplicate(scene, o);
 					status("Duplicated " + o.name());
 				});
 				return true;
 			}
-			if (key == GLFW.GLFW_KEY_F) {
+			if (key == InputConstants.KEY_F) {
 				frameSelection();
 				return true;
 			}
 			// Home and End go to the ends of the work range when one is set, else of the scene.
 			var st = ClientScene.state();
 			boolean ranged = st.loopStart() >= 0 && st.loopEnd() > st.loopStart();
-			if (key == GLFW.GLFW_KEY_HOME) {
+			if (key == InputConstants.KEY_HOME) {
 				ClientNet.seek(ranged && ClientScene.tick() != st.loopStart() ? st.loopStart() : 0);
 				return true;
 			}
-			if (key == GLFW.GLFW_KEY_END) {
+			if (key == InputConstants.KEY_END) {
 				ClientNet.seek(ranged && ClientScene.tick() != st.loopEnd() ? st.loopEnd() : scene.length());
 				return true;
 			}
-			if (key == GLFW.GLFW_KEY_I) {
+			if (key == InputConstants.KEY_I) {
 				inspector.keyPosition(scene);
 				return true;
 			}
-			if (key == GLFW.GLFW_KEY_DELETE || key == GLFW.GLFW_KEY_BACKSPACE) {
+			if (key == InputConstants.KEY_DELETE || key == InputConstants.KEY_BACKSPACE) {
 				deleteSelection(scene);
 				return true;
 			}
@@ -568,7 +569,7 @@ public final class EditorScreen extends Screen {
 				return true;
 			}
 		}
-		if (key == GLFW.GLFW_KEY_ESCAPE) {
+		if (key == InputConstants.KEY_ESCAPE) {
 			if (EditorState.paletteOpen || EditorState.sceneBrowserOpen || !EditorState.pathDraft.isEmpty()) {
 				EditorState.paletteOpen = false;
 				EditorState.sceneBrowserOpen = false;

@@ -9,7 +9,7 @@ import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import net.minecraft.client.gui.screens.GenericMessageScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -56,12 +56,12 @@ public class RecorderClientGameTest implements FabricClientGameTest {
 			context.waitTicks(100);
 			Screenshots.printThumbnail(context.takeScreenshot("scenescripter-with-" + recorder), "with-" + recorder);
 
-			context.getInput().pressKey(GLFW.GLFW_KEY_RIGHT_CONTROL);
+			context.getInput().pressKey(InputConstants.KEY_RCONTROL);
 			context.waitFor(client -> client.gui.screen() != null
 					&& client.gui.screen().getClass().getSimpleName().equals("EditorScreen"), 100);
 			context.waitTicks(5);
 			Screenshots.printThumbnail(context.takeScreenshot("scenescripter-editor-with-" + recorder), "editor-with-" + recorder);
-			context.getInput().pressKey(GLFW.GLFW_KEY_RIGHT_CONTROL);
+			context.getInput().pressKey(InputConstants.KEY_RCONTROL);
 			context.waitFor(client -> client.gui.screen() == null, 100);
 			if (flashback) {
 				// And finishes it a moment after the scene has played through.

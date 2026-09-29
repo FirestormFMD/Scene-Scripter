@@ -7,7 +7,7 @@ import java.nio.file.Path;
 
 import javax.imageio.ImageIO;
 
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
@@ -28,7 +28,7 @@ public class EditorClientGameTest implements FabricClientGameTest {
 			singleplayer.getServer().runCommand("scene new demo 200");
 			context.waitTicks(5);
 
-			context.getInput().pressKey(GLFW.GLFW_KEY_RIGHT_CONTROL);
+			context.getInput().pressKey(InputConstants.KEY_RCONTROL);
 			context.waitFor(client -> client.gui.screen() != null
 					&& client.gui.screen().getClass().getSimpleName().equals("EditorScreen"), 100);
 			context.waitTicks(5);
@@ -37,13 +37,13 @@ public class EditorClientGameTest implements FabricClientGameTest {
 					client.getWindow().getGuiScaledHeight()});
 			matchesReference(open, "editor-open", gui[0], gui[1]);
 
-			context.getInput().pressKey(GLFW.GLFW_KEY_F1);
+			context.getInput().pressKey(InputConstants.KEY_F1);
 			context.waitTicks(3);
 			Path help = context.takeScreenshot("scenescripter-editor-help");
-			context.getInput().pressKey(GLFW.GLFW_KEY_F1);
+			context.getInput().pressKey(InputConstants.KEY_F1);
 			context.waitTicks(3);
 
-			context.getInput().pressKey(GLFW.GLFW_KEY_RIGHT_CONTROL);
+			context.getInput().pressKey(InputConstants.KEY_RCONTROL);
 			context.waitFor(client -> client.gui.screen() == null, 100);
 			singleplayer.getServer().runCommand("scene close");
 			context.waitTicks(5);

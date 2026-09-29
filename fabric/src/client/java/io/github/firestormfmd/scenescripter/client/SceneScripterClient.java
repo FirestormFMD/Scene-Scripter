@@ -1,7 +1,6 @@
 package io.github.firestormfmd.scenescripter.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.KeyMapping;
 
@@ -13,6 +12,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
 import io.github.firestormfmd.scenescripter.SceneScripter;
+import io.github.firestormfmd.scenescripter.client.compat.ClientCompat;
 import io.github.firestormfmd.scenescripter.client.editor.EditorMode;
 import io.github.firestormfmd.scenescripter.net.Payloads;
 
@@ -21,7 +21,7 @@ public class SceneScripterClient implements ClientModInitializer {
 
 	/** Opens and closes the scene editor. Right Ctrl by default; rebindable in Controls. */
 	public static final KeyMapping TOGGLE_EDITOR = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-			"key.scenescripter.toggle_editor", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_CONTROL, CATEGORY));
+			"key.scenescripter.toggle_editor", ClientCompat.KEYBOARD, InputConstants.KEY_RCONTROL, CATEGORY));
 
 	@Override
 	public void onInitializeClient() {

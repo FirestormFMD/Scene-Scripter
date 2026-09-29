@@ -3,11 +3,11 @@ package io.github.firestormfmd.scenescripter.client.editor;
 import java.util.HashSet;
 import java.util.Set;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.phys.Vec3;
-
-import org.lwjgl.glfw.GLFW;
 
 /**
  * Fly camera for the editor: hold the right mouse button to look around and fly with WASD, Space and Shift, like
@@ -52,9 +52,9 @@ public final class EditorCamera {
 	}
 
 	private static boolean isMovementKey(int key) {
-		return key == GLFW.GLFW_KEY_W || key == GLFW.GLFW_KEY_A || key == GLFW.GLFW_KEY_S || key == GLFW.GLFW_KEY_D
-				|| key == GLFW.GLFW_KEY_SPACE || key == GLFW.GLFW_KEY_LEFT_SHIFT || key == GLFW.GLFW_KEY_Q
-				|| key == GLFW.GLFW_KEY_E;
+		return key == InputConstants.KEY_W || key == InputConstants.KEY_A || key == InputConstants.KEY_S || key == InputConstants.KEY_D
+				|| key == InputConstants.KEY_SPACE || key == InputConstants.KEY_LSHIFT || key == InputConstants.KEY_Q
+				|| key == InputConstants.KEY_E;
 	}
 
 	public void look(double dx, double dy) {
@@ -75,9 +75,9 @@ public final class EditorCamera {
 		if (!player.getAbilities().flying) {
 			return;
 		}
-		double forward = axis(GLFW.GLFW_KEY_W, GLFW.GLFW_KEY_S);
-		double strafe = axis(GLFW.GLFW_KEY_D, GLFW.GLFW_KEY_A);
-		double up = axis(GLFW.GLFW_KEY_SPACE, GLFW.GLFW_KEY_LEFT_SHIFT) + axis(GLFW.GLFW_KEY_E, GLFW.GLFW_KEY_Q);
+		double forward = axis(InputConstants.KEY_W, InputConstants.KEY_S);
+		double strafe = axis(InputConstants.KEY_D, InputConstants.KEY_A);
+		double up = axis(InputConstants.KEY_SPACE, InputConstants.KEY_LSHIFT) + axis(InputConstants.KEY_E, InputConstants.KEY_Q);
 		if (forward == 0 && strafe == 0 && up == 0) {
 			if (looking) {
 				player.setDeltaMovement(Vec3.ZERO);

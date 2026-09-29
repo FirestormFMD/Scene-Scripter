@@ -15,6 +15,7 @@ import org.jspecify.annotations.Nullable;
 
 import io.github.firestormfmd.scenescripter.SceneScripter;
 import io.github.firestormfmd.scenescripter.actor.Actors;
+import io.github.firestormfmd.scenescripter.client.compat.ClientCompat;
 import io.github.firestormfmd.scenescripter.core.io.SceneCodec;
 import io.github.firestormfmd.scenescripter.core.io.SceneFormatException;
 import io.github.firestormfmd.scenescripter.core.scene.Scene;
@@ -134,8 +135,7 @@ public final class ClientScene {
 					}
 					int sinceSwing = ticksSince(o, tick, java.util.Set.of("attack", "swing", "place_block", "break_block", "use_block"));
 					if (sinceSwing >= 0 && sinceSwing < 6) {
-						living.swinging = true;
-						living.swingTime = sinceSwing;
+						ClientCompat.showSwing(living, sinceSwing);
 					}
 				}
 				if (e instanceof net.minecraft.world.entity.monster.Creeper creeper) {

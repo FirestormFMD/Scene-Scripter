@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import io.github.firestormfmd.scenescripter.client.ClientScene;
 import io.github.firestormfmd.scenescripter.client.net.ClientNet;
@@ -559,7 +559,7 @@ final class Timeline {
 			boxY1 = my;
 			return true;
 		}
-		if (curveDragging && button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+		if (curveDragging && button == InputConstants.MOUSE_BUTTON_LEFT) {
 			curveDragTick = xToTickExact(mx);
 			curveDragValue = yToValue(my);
 			return true;
@@ -572,7 +572,7 @@ final class Timeline {
 			rangeTo = Math.max(0, xToTick(mx));
 			return true;
 		}
-		if (dragChannel != null && button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+		if (dragChannel != null && button == InputConstants.MOUSE_BUTTON_LEFT) {
 			dragTo = Math.max(0, xToTick(mx));
 			return true;
 		}
