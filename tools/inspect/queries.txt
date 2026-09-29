@@ -1,12 +1,7 @@
-# batch 9
-grep server/commands/WeatherCommand.java setWeather|Weather\(|getLevel\(\)|private static int
-grep server/level/ServerLevel.java public void setWeather|public boolean isRaining|public boolean isThundering|WeatherData|weatherData
-method world/clock/ServerClockManager.java setTotalTicks
-grep world/level/dimension/DimensionType.java defaultClock
-grep world/entity/animal/sheep/Sheep.java public void setSheared|public void setColor
-grep world/entity/TamableAnimal.java public void setInSittingPose|public void setOrderedToSit
-grep world/entity/monster/EnderMan.java public void setCarriedBlock|public void setBeingStaredAt
-grep world/entity/Mob.java public void setLeftHanded|public void setAggressive
-grep world/entity/LivingEntity.java public void startUsingItem|public void stopUsingItem|public void releaseUsingItem
-find Sheep.java
-find EnderMan.java
+# batch 10
+grep world/entity/monster/Creeper.java private int oldSwell|private int swell|private int maxSwell
+grep world/entity/LivingEntity.java public int hurtTime|public int hurtDuration|public float attackAnim|public int deathTime
+find ResolvableProfile.java
+find PlayerSkin.java
+grep world/item/component/ResolvableProfile.java public static|record|public ResolvableProfile|skinPatch|Partial
+grep world/entity/player/PlayerSkin.java record Patch|public static Patch|public record|ResourceTexture|create
