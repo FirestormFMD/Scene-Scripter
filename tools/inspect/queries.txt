@@ -1,7 +1,4 @@
-# batch 20: more of 26.3 for the port
+# batch 21: the enderman in 26.3
 minecraft 26.3 0.161.0+26.3
-find Ender*.java
-lines server/network/ServerGamePacketListenerImpl.java 1732 1750
-outline world/clock/ServerClockManager.java
-grep world/item/component/SwingAnimation.java (public|DEFAULT)
-grep network/protocol/game/GamePacketTypes.java SWING
+grep world/entity/monster/Enderman.java (DATA_|isCreepy|CarriedBlock|class Enderman)
+grep network/protocol/game/ServerboundPunchPacket.java (record|class|public)
