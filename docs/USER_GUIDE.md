@@ -142,9 +142,11 @@ The first row of the outliner is the scene track. It holds:
 Scene Scripter is tested beside Flashback 0.43.6 and Replay Mod 2.6.27 for Minecraft 26.2.
 
 1. Press **Bounds** once so the scene's chunks stay loaded while it plays.
-2. Start recording in Flashback or Replay Mod.
+2. Start recording in Replay Mod (it records singleplayer by itself) or Flashback. With Flashback you can skip this: Record starts it for you.
 3. Press **Record** in the editor, or run `/scene record`. The editor closes so no overlay shows, the scene rewinds, holds its first frame for two seconds with every actor in place, and plays at normal speed.
 4. Stop recording when the scene ends, then do cameras and rendering in the recorder.
+
+With Flashback installed and not already recording, **Record** starts Flashback's recording as the scene starts and finishes it a second after the scene stops playing, which opens Flashback's usual screen for saving the replay. A recording you started yourself is left running. This works for Record, `/scene record` and `/scene run` when a player runs them; from a command block, start Flashback yourself.
 
 From a command block, `/scene run <name>` opens a scene and plays it for recording.
 

@@ -19,4 +19,4 @@ The first release, for Minecraft 26.2 with Fabric. Scenes are recorded with Flas
   professions, screaming endermen, warden poses, a golem offering a flower and more, from data files.
 - **Performance capture:** act a part out and keep it as keyframes or a motion path; loop capture builds crowds.
 - **Crowds, groups, variables and conditional events, the scene track** (time, weather, sounds, commands), and
-  **Record** for Flashback or Replay Mod.
+  **Record** for Flashback or Replay Mod. With Flashback, Record starts and finishes the recording by itself.
