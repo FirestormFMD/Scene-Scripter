@@ -697,8 +697,8 @@ final class Inspector {
 						c.setSpeedKeys(ks);
 					}), null);
 		}
-		int speedY = rowY;
-		row("Add", "speed at %...", false, () -> editAt(speedY, "50 5.6", v -> {
+		int speedKeyY = rowY;
+		row("Add", "speed at %...", false, () -> editAt(speedKeyY, "50 5.6", v -> {
 			String[] parts = v.trim().split("\\s+");
 			try {
 				var key = new io.github.firestormfmd.scenescripter.core.scene.SpeedKey(
