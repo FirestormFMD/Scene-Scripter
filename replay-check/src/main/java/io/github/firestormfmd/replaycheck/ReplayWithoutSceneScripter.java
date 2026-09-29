@@ -161,15 +161,17 @@ public class ReplayWithoutSceneScripter implements FabricClientGameTest {
 				click.invoke(chosen);
 				return out + ", pressed \"" + text(chosen) + "\"";
 			}
-			// Replay Mod's buttons keep what a click does as a Runnable.
+			// Current jGui buttons take the click itself (mouse position, button and modifiers): this is the call a
+			// real left click makes once it has landed on the button.
 			for (Class<?> c = chosen.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
-				for (java.lang.reflect.Field f : c.getDeclaredFields()) {
-					if (Runnable.class.isAssignableFrom(f.getType()) && !java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
-						f.setAccessible(true);
-						if (f.get(chosen) instanceof Runnable action) {
-							action.run();
-							return out + ", pressed \"" + text(chosen) + "\" (" + f.getName() + ")";
-						}
+				for (Method m : c.getDeclaredMethods()) {
+					if (m.getName().equals("onClick") && m.getParameterCount() == 1
+							&& m.getParameterTypes()[0].getSimpleName().equals("Click")) {
+						Object press = m.getParameterTypes()[0].getConstructor(int.class, int.class, int.class, int.class)
+								.newInstance(0, 0, 0, 0);
+						m.setAccessible(true);
+						m.invoke(chosen, press);
+						return out + ", pressed \"" + text(chosen) + "\"";
 					}
 				}
 			}
