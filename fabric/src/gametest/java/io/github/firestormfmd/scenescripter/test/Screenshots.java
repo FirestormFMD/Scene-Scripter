@@ -32,14 +32,22 @@ final class Screenshots {
 		return out;
 	}
 
-	/**
-	 * Prints a small copy of a screenshot to the log as base64 PNG lines ({@code THUMB <name> <part>}), so it can
-	 * be looked at from the CI log where artifacts are out of reach.
-	 */
 	static void printThumbnail(Path png, String name) {
+		printThumbnail(png, name, 0, 0, 1, 1);
+	}
+
+	/**
+	 * Prints a small JPEG of part of a screenshot (given as fractions of its width and height) to the log as base64
+	 * lines ({@code THUMB <name> <part>}), so it can be looked at from the CI log where artifacts are out of reach.
+	 */
+	static void printThumbnail(Path png, String name, double left, double top, double right, double bottom) {
 		try {
+			BufferedImage full = read(png);
+			int x0 = (int) (full.getWidth() * left);
+			int y0 = (int) (full.getHeight() * top);
+			BufferedImage part = full.getSubimage(x0, y0, (int) (full.getWidth() * right) - x0, (int) (full.getHeight() * bottom) - y0);
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-			ImageIO.write(scaled(read(png), 480, 270), "png", bytes);
+			ImageIO.write(scaled(part, 320, 180), "jpg", bytes);
 			String text = Base64.getEncoder().encodeToString(bytes.toByteArray());
 			for (int i = 0, part = 0; i < text.length(); i += 2000, part++) {
 				System.out.println("THUMB " + name + " " + part + " " + text.substring(i, Math.min(text.length(), i + 2000)));

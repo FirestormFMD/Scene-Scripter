@@ -64,7 +64,7 @@ public class MannequinClientGameTest implements FabricClientGameTest {
 				return out;
 			});
 			Path shot = context.takeScreenshot("scenescripter-mannequin-poses");
-			Screenshots.printThumbnail(shot, "mannequin-poses");
+			Screenshots.printThumbnail(shot, "mannequin-poses", 0.2, 0.25, 0.8, 0.85);
 			if (!problems.isEmpty()) {
 				throw new AssertionError("Mannequins on the client: " + problems);
 			}
