@@ -1,7 +1,7 @@
-# batch 14
-grep world/entity/TamableAnimal.java public .*Tame[A-Za-z]*\(
-lines world/entity/animal/equine/AbstractHorse.java 660 680
-lines world/entity/animal/wolf/Wolf.java 550 590
-lines world/entity/NeutralMob.java 110 120
-grep world/entity/npc/villager/VillagerProfession.java public static final ResourceKey
-grep world/entity/npc/villager/VillagerType.java public static final ResourceKey
+# batch 15
+grep world/entity/Display.java (private|protected|public) .*void set(BlockState|ItemStack|Text|Billboard|BackgroundColor)[A-Za-z]*\(
+grep world/entity/item/FallingBlockEntity.java (blockState|public static .*fall\(|FallingBlockEntity\()
+grep world/entity/item/ItemEntity.java public (void setItem|ItemEntity\()
+grep world/entity (public|protected) (void|boolean) setBaby\(
+grep world/level/block/Block.java public static List<ItemStack> getDrops\(
+grep world/entity/item/PrimedTnt.java (public .*PrimedTnt\(|setDeltaMovement|DEFAULT_FUSE_TIME|getDefaultGravity|0\.04)
