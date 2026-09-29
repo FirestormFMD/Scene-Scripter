@@ -1,7 +1,5 @@
-# batch 15
-grep world/entity/Display.java (private|protected|public) .*void set(BlockState|ItemStack|Text|Billboard|BackgroundColor)[A-Za-z]*\(
-grep world/entity/item/FallingBlockEntity.java (blockState|public static .*fall\(|FallingBlockEntity\()
-grep world/entity/item/ItemEntity.java public (void setItem|ItemEntity\()
-grep world/entity (public|protected) (void|boolean) setBaby\(
-grep world/level/block/Block.java public static List<ItemStack> getDrops\(
-grep world/entity/item/PrimedTnt.java (public .*PrimedTnt\(|setDeltaMovement|DEFAULT_FUSE_TIME|getDefaultGravity|0\.04)
+# batch 16
+modrinth flashback
+modrinth replaymod
+grep world/entity/LivingEntity.java (protected|public) void (dropAllDeathLoot|dropEquipment|dropCustomDeathLoot|dropFromLootTable)\(
+grep world/entity/LivingEntity.java public (Optional<ResourceKey<LootTable>>|ResourceKey<LootTable>) getLootTable\(
