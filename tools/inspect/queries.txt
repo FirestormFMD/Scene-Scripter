@@ -1,11 +1,25 @@
-# batch 6
-grep server/level void broadcast\(|void broadcastAndSend\(|void sendToTrackingPlayers|void broadcastToPlayer
-find TicketType.java
-grep server/level/TicketType.java public static final TicketType
-grep world/entity/Mob.java public void setPersistenceRequired|public void setLeftHanded
-grep world/entity/monster/zombie/Zombie.java public void setBaby
-find Zombie.java
-grep world/entity/LivingEntity.java public void setOnGround|protected void playHurtSound|public void die\(|public void knockback\(|public boolean isDeadOrDying
-grep world/entity/Entity.java public void setSharedFlagOnFire|public boolean startRiding|public void stopRiding|public void setOnGround
-grep world/level/Level.java public boolean isLoaded\(|public BlockState getBlockState\(|public FluidState getFluidState\(|public RegistryAccess registryAccess
-grep world/entity/player/Player.java public Abilities getAbilities|public boolean isCreative
+# batch 7
+find ClientboundExplodePacket.java
+find ServerExplosion.java
+find PrimedTnt.java
+find TntBlock.java
+find Creeper.java
+find EndCrystal.java
+find AbstractArrow.java
+find LargeFireball.java
+find AbstractThrownPotion.java
+find ThrownTrident.java
+find LevelEvent.java
+find BlockStateParser.java
+grep network/protocol/game/ClientboundExplodePacket.java record ClientboundExplodePacket|public ClientboundExplodePacket
+grep server/level/ServerLevel.java public .* explode\(|new ClientboundExplodePacket|public void setDayTime|public long getDayTime|public void setWeatherParameters|public int sendParticles\(|public void blockEvent\(|public void levelEvent\(|public void playSound\(|clock|Clock
+grep world/level/ServerExplosion.java 0\.7F|0\.6F|0\.3F|0\.22500001F|7\.0|nextInt\(3\)|isSolidRender|getSeenPercent\(|EXPLOSION_KNOCKBACK_RESISTANCE|getEyeY|private .*\(|public .*\(
+grep world/level/block/TntBlock.java nextInt|setFuse|wasExploded|public static
+grep server/level/ServerChunkCache.java public void addTicketWithRadius|public void removeTicketWithRadius|public .*Ticket
+grep server/level/TicketType.java public static final
+grep world/level/block/state/properties/BlockStateProperties.java BooleanProperty OPEN|BooleanProperty POWERED|DOUBLE_BLOCK_HALF =|BooleanProperty LIT
+grep world/entity/LivingEntity.java public boolean swinging|public int swingTime|public void setInvulnerable|public float getAttackAnim
+grep world/entity/Entity.java public void setInvulnerable|public void stopRiding|public Entity getVehicle|public void setNoGravity|public void setDeltaMovement\(Vec3|public boolean hurtMarked|public boolean isNoGravity
+grep server/level/ServerPlayer.java public void sendSystemMessage|public void sendOverlayMessage|public void setGameMode|public boolean setGameMode
+grep commands/Commands.java public void performPrefixedCommand|public void performCommand
+grep server/MinecraftServer.java public CommandSourceStack createCommandSourceStack|public Commands getCommands
