@@ -66,18 +66,24 @@ jobs:
             fabric/build/run/**/screenshots/
             fabric/build/run/**/logs/
             fabric/build/run/**/crash-reports/
-      - name: keep the replay mod recordings
-        if: matrix.recorder == 'replaymod'
+      - name: keep the recordings
+        if: matrix.recorder != 'none'
         uses: actions/upload-artifact@v7
         with:
-          name: scene-recordings
-          path: fabric/build/run/**/replay_recordings/**/*.mcpr
+          name: scene-recordings-${{ matrix.recorder }}
+          path: |
+            fabric/build/run/**/replay_recordings/**/*.mcpr
+            fabric/build/run/**/flashback/replays/*.zip
           if-no-files-found: error
 
-  # Plays the recordings Replay Mod made of the scenes back in a game without Scene Scripter.
+  # Plays the recordings each recorder made of the scenes back in a game with that recorder but without Scene Scripter.
   replay_without_scene_scripter:
     needs: client_game_test
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        recorder: [flashback, replaymod]
     steps:
       - name: checkout repository
         uses: actions/checkout@v6
@@ -93,17 +99,17 @@ jobs:
       - name: fetch the recordings
         uses: actions/download-artifact@v7
         with:
-          name: scene-recordings
+          name: scene-recordings-${{ matrix.recorder }}
           path: recordings
       - name: play them back without scene scripter
         env:
           SCENE_RECORDINGS: ${{ github.workspace }}/recordings
-        run: xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew :replay-check:runClientGameTest
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew :replay-check:runClientGameTest -Precorder=${{ matrix.recorder }}
       - name: capture screenshots and logs
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: replay-without-scene-scripter
+          name: replay-without-scene-scripter-${{ matrix.recorder }}
           path: |
             replay-check/build/run/**/screenshots/
             replay-check/build/run/**/logs/

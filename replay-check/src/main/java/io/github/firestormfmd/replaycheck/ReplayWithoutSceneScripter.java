@@ -8,6 +8,9 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.GenericMessageScreen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.decoration.Mannequin;
 import net.minecraft.world.entity.monster.zombie.Zombie;
@@ -17,9 +20,10 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.loader.api.FabricLoader;
 
 /**
- * Plays scene recordings back in Replay Mod in a game without Scene Scripter, and checks the scene's actors show
- * up: they are plain vanilla entities, so a recording must not need the mod to be watched. The recordings come
- * from the folder in the {@code SCENE_RECORDINGS} environment variable; without it there is nothing to check.
+ * Plays scene recordings back in Flashback or Replay Mod, whichever is installed, in a game without Scene Scripter,
+ * and checks the scene's actors show up: they are plain vanilla entities, so a recording must not need the mod to
+ * be watched. The recordings come from the folder in the {@code SCENE_RECORDINGS} environment variable; without it
+ * there is nothing to check.
  */
 @SuppressWarnings("UnstableApiUsage")
 public class ReplayWithoutSceneScripter implements FabricClientGameTest {
@@ -33,13 +37,20 @@ public class ReplayWithoutSceneScripter implements FabricClientGameTest {
 			System.out.println("SCENE_RECORDINGS is not set; no recordings to play back");
 			return;
 		}
-		List<Path> recordings = recordings(Path.of(folder));
+		boolean flashback = FabricLoader.getInstance().isModLoaded("flashback");
+		String extension = flashback ? ".zip" : ".mcpr";
+		List<Path> recordings = recordings(Path.of(folder), extension);
 		if (recordings.isEmpty()) {
-			throw new AssertionError("No .mcpr recordings under " + folder);
+			throw new AssertionError("No " + extension + " recordings under " + folder);
 		}
 		// The largest recording is the one of the played tutorial scene.
 		Path replay = recordings.stream().max(java.util.Comparator.comparingLong(ReplayWithoutSceneScripter::size)).orElseThrow();
-		System.out.println("Playing " + replay.getFileName() + " (" + size(replay) + " bytes) without Scene Scripter");
+		System.out.println("Playing " + replay.getFileName() + " (" + size(replay) + " bytes) in "
+				+ (flashback ? "Flashback" : "Replay Mod") + " without Scene Scripter");
+		if (flashback) {
+			playInFlashback(context, replay);
+			return;
+		}
 		context.runOnClient(client -> replayMod("startReplay", replay.toFile()));
 		// Replay Mod may stop on a screen first (such as a note about mods the recording was made with); log what
 		// is open while waiting, and show it if the replay never starts.
@@ -81,6 +92,44 @@ public class ReplayWithoutSceneScripter implements FabricClientGameTest {
 			}
 		});
 		context.waitFor(client -> client.level == null, 20 * 30);
+	}
+
+	/** Opens the recording in Flashback's viewer, waits for the scene's actors to show up and leaves again. */
+	private static void playInFlashback(ClientGameTestContext context, Path replay) {
+		context.runOnClient(client -> {
+			try {
+				Class.forName("com.moulberry.flashback.Flashback").getMethod("openReplayWorld", Path.class).invoke(null, replay);
+			} catch (ReflectiveOperationException e) {
+				throw new AssertionError("Flashback could not open the recording", e);
+			}
+		});
+		boolean started = false;
+		for (int wait = 0; wait < 12 && !started; wait++) {
+			context.waitTicks(100);
+			started = context.computeOnClient(client -> client.level != null && actors(client) > 0);
+			String screen = context.computeOnClient(client -> client.gui.screen() == null ? "none"
+					: client.gui.screen().getClass().getName() + " \"" + client.gui.screen().getTitle().getString() + "\"");
+			System.out.println("Replay after " + (wait + 1) * 5 + " s: level " + context.computeOnClient(client -> client.level != null)
+					+ ", screen " + screen);
+		}
+		if (!started) {
+			printThumbnail(context.takeScreenshot("replay-without-scene-scripter-stuck"));
+			throw new AssertionError("The recording did not start playing without Scene Scripter");
+		}
+		context.waitTicks(40);
+		int actors = context.computeOnClient(ReplayWithoutSceneScripter::actors);
+		System.out.println("The recording played back in Flashback without Scene Scripter with " + actors + " scene actors in view");
+		context.takeScreenshot("replay-without-scene-scripter");
+		// Leave the replay world the way the test harness leaves singleplayer.
+		context.runOnClient(client -> {
+			if (client.level != null) {
+				client.level.disconnect(Component.translatable("menu.savingLevel"));
+			}
+			client.disconnect(new GenericMessageScreen(Component.translatable("menu.savingLevel")), false);
+		});
+		context.waitFor(client -> client.level == null, 20 * 60);
+		context.waitTicks(2);
+		context.setScreen(TitleScreen::new);
 	}
 
 	/**
@@ -269,12 +318,12 @@ public class ReplayWithoutSceneScripter implements FabricClientGameTest {
 		return count;
 	}
 
-	private static List<Path> recordings(Path dir) {
+	private static List<Path> recordings(Path dir, String extension) {
 		if (!Files.isDirectory(dir)) {
 			return List.of();
 		}
 		try (Stream<Path> s = Files.walk(dir)) {
-			return s.filter(p -> p.getFileName().toString().endsWith(".mcpr")).toList();
+			return s.filter(p -> p.getFileName().toString().endsWith(extension)).toList();
 		} catch (IOException e) {
 			return List.of();
 		}

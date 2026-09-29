@@ -1,5 +1,6 @@
-// A client with Fabric API and Replay Mod but without Scene Scripter, to check that recordings of scenes play back
-// in a game that doesn't have the mod. CI feeds it a recording made by the recorder client game test.
+// A client with Fabric API and a recorder but without Scene Scripter, to check that recordings of scenes play back
+// in a game that doesn't have the mod. CI feeds it recordings made by the recorder client game test:
+// `./gradlew :replay-check:runClientGameTest -Precorder=flashback` (or replaymod, the default).
 plugins {
 	id 'net.fabricmc.fabric-loom' version "${loom_version}"
 }
@@ -31,8 +32,13 @@ dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
-	// Replay Mod 2.6.27 for Minecraft 26.2, by Modrinth version ID.
-	localRuntime 'maven.modrinth:replaymod:5YS1OgDP'
+	// Flashback 0.43.6 or Replay Mod 2.6.27 for Minecraft 26.2, by Modrinth version ID.
+	def recorders = [flashback: 'Um7qd3Na', replaymod: '5YS1OgDP']
+	def recorder = project.findProperty('recorder') ?: 'replaymod'
+	if (!recorders.containsKey(recorder)) {
+		throw new GradleException("Unknown recorder ${recorder}; use flashback or replaymod")
+	}
+	localRuntime "maven.modrinth:${recorder}:${recorders[recorder]}"
 }
 
 java {

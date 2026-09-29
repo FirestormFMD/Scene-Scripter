@@ -6,9 +6,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import org.lwjgl.glfw.GLFW;
+
+import net.minecraft.client.gui.screens.GenericMessageScreen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.network.chat.Component;
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
@@ -17,8 +22,9 @@ import net.fabricmc.loader.api.FabricLoader;
 
 /**
  * Runs only beside a recorder (CI adds Flashback or Replay Mod with {@code -Precorder=...}): plays the tutorial
- * scene and opens and closes the editor with the recorder loaded. Replay Mod records singleplayer by itself, so
- * with it the test also checks that the recording was saved and holds packets.
+ * scene and opens and closes the editor with the recorder loaded, checks that the recorder saved a recording that
+ * holds packets, and plays it back in the recorder's viewer to see the scene's actors in it. Replay Mod records
+ * singleplayer by itself; Flashback is started and finished the way its recording keys do.
  */
 @SuppressWarnings("UnstableApiUsage")
 public class RecorderClientGameTest implements FabricClientGameTest {
@@ -32,8 +38,13 @@ public class RecorderClientGameTest implements FabricClientGameTest {
 		String recorder = replayMod ? "replaymod" : "flashback";
 		Path recordings = FabricLoader.getInstance().getGameDir().resolve("replay_recordings");
 		List<Path> before = files(recordings);
+		Path flashbackReplays = flashback ? (Path) flashback("getReplayFolder") : null;
+		List<Path> flashbackBefore = flashback ? files(flashbackReplays) : List.of();
 		try (TestSingleplayerContext singleplayer = context.worldBuilder().create()) {
 			singleplayer.getConnection().waitForChunksRender();
+			if (flashback) {
+				context.runOnClient(client -> startFlashback());
+			}
 			singleplayer.getServer().runCommand("gamemode creative @a");
 			singleplayer.getServer().runCommand("scene tutorial recorded");
 			singleplayer.getServer().runCommand("scene play");
@@ -51,6 +62,28 @@ public class RecorderClientGameTest implements FabricClientGameTest {
 			context.waitTicks(100);
 			System.out.println("Recordings folder while in the world: " + files(recordings).stream()
 					.map(p -> recordings.relativize(p) + " " + size(p)).toList());
+			if (flashback) {
+				context.runOnClient(client -> flashback("finishRecordingReplay"));
+			}
+		}
+		if (flashback) {
+			Path found = files(flashbackReplays).stream()
+					.filter(p -> !flashbackBefore.contains(p) && p.getFileName().toString().endsWith(".zip"))
+					.max(java.util.Comparator.comparingLong(RecorderClientGameTest::modified)).orElse(null);
+			if (found == null) {
+				throw new AssertionError("Flashback saved no recording under " + flashbackReplays);
+			}
+			try (ZipFile zip = new ZipFile(found.toFile())) {
+				long packets = zip.stream().filter(e -> e.getName().endsWith(".flashback")).mapToLong(ZipEntry::getSize).sum();
+				System.out.println("Flashback recording " + found.getFileName() + " (" + size(found) + " bytes) holds "
+						+ packets + " bytes of packets in " + zip.stream().map(ZipEntry::getName).toList());
+				if (zip.getEntry("metadata.json") == null || packets < 10_000) {
+					throw new AssertionError("The Flashback recording holds no packets");
+				}
+			} catch (IOException e) {
+				throw new UncheckedIOException(e);
+			}
+			playBackInFlashback(context, found);
 		}
 		if (replayMod) {
 			// Replay Mod writes the recording while the world is open and finishes it after leaving; depending on its
@@ -111,6 +144,63 @@ public class RecorderClientGameTest implements FabricClientGameTest {
 			}
 		});
 		context.waitFor(client -> client.level == null, 20 * 30);
+	}
+
+	/**
+	 * Starts a Flashback recording, as its Start Recording key does, set to save straight to its replays folder when
+	 * finished instead of asking for a name.
+	 */
+	private static void startFlashback() {
+		try {
+			Object config = flashback("getConfig");
+			Object controls = config.getClass().getField("recordingControls").get(config);
+			controls.getClass().getField("quicksave").setBoolean(controls, true);
+			flashback("startRecordingReplay");
+			if (Class.forName("com.moulberry.flashback.Flashback").getField("RECORDER").get(null) == null) {
+				throw new AssertionError("Flashback did not start recording");
+			}
+		} catch (ReflectiveOperationException e) {
+			throw new AssertionError("Flashback's recording could not be started", e);
+		}
+	}
+
+	/** Opens the recording in Flashback's viewer, waits for the scene's actors to show up and leaves again. */
+	private static void playBackInFlashback(ClientGameTestContext context, Path replay) {
+		context.runOnClient(client -> {
+			try {
+				Class.forName("com.moulberry.flashback.Flashback").getMethod("openReplayWorld", Path.class).invoke(null, replay);
+			} catch (ReflectiveOperationException e) {
+				throw new AssertionError("Flashback could not open the recording", e);
+			}
+		});
+		context.waitFor(client -> client.level != null && replayed(client) > 0, 20 * 60);
+		context.waitTicks(40);
+		int actors = context.computeOnClient(RecorderClientGameTest::replayed);
+		System.out.println("Flashback played the recording back with " + actors + " scene actors in view");
+		Screenshots.printThumbnail(context.takeScreenshot("scenescripter-flashback-playback"), "flashback-playback");
+		leaveReplay(context);
+	}
+
+	/** Leaves a replay world the way the test harness leaves singleplayer, and goes back to the title screen. */
+	private static void leaveReplay(ClientGameTestContext context) {
+		context.runOnClient(client -> {
+			if (client.level != null) {
+				client.level.disconnect(Component.translatable("menu.savingLevel"));
+			}
+			client.disconnect(new GenericMessageScreen(Component.translatable("menu.savingLevel")), false);
+		});
+		context.waitFor(client -> client.level == null, 20 * 60);
+		context.waitTicks(2);
+		context.setScreen(TitleScreen::new);
+	}
+
+	/** Calls one of Flashback's static methods without arguments. */
+	private static Object flashback(String method) {
+		try {
+			return Class.forName("com.moulberry.flashback.Flashback").getMethod(method).invoke(null);
+		} catch (ReflectiveOperationException e) {
+			throw new AssertionError("Flashback could not be reached (" + method + ")", e);
+		}
 	}
 
 	/** Calls a method of Replay Mod's replay module, with one file argument or none. */
