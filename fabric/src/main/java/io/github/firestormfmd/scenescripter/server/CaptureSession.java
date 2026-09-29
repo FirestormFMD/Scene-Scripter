@@ -12,6 +12,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
+import io.github.firestormfmd.scenescripter.compat.Compat;
 import io.github.firestormfmd.scenescripter.core.capture.CaptureSample;
 import io.github.firestormfmd.scenescripter.core.capture.Take;
 import io.github.firestormfmd.scenescripter.core.scene.SceneEvent;
@@ -53,7 +54,7 @@ public final class CaptureSession {
 		this.punchOut = punchOut;
 		this.preroll = preroll;
 		this.loop = loop;
-		this.wasInvulnerable = player.isInvulnerable();
+		this.wasInvulnerable = Compat.isInvulnerable(player);
 		this.returnTo = player.position();
 		this.returnYaw = player.getYRot();
 		this.returnPitch = player.getXRot();
@@ -136,7 +137,7 @@ public final class CaptureSession {
 
 	/** Gives the player back their vulnerability and puts them where they started. */
 	void release() {
-		player.setInvulnerable(wasInvulnerable);
+		Compat.setInvulnerable(player, wasInvulnerable);
 		player.connection.teleport(returnTo.x, returnTo.y, returnTo.z, returnYaw, returnPitch);
 		player.sendOverlayMessage(Component.literal("Capture finished"));
 	}

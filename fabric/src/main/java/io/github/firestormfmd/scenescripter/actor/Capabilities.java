@@ -16,11 +16,11 @@ import net.minecraft.world.entity.TamableAnimal;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
 import net.minecraft.world.entity.animal.sheep.Sheep;
 import net.minecraft.world.entity.animal.wolf.Wolf;
-import net.minecraft.world.entity.monster.EnderMan;
 import net.minecraft.world.entity.npc.villager.AbstractVillager;
 import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.item.DyeColor;
 
+import io.github.firestormfmd.scenescripter.compat.Compat;
 import io.github.firestormfmd.scenescripter.core.anim.ValueType;
 import io.github.firestormfmd.scenescripter.core.scene.ChannelSpec;
 import io.github.firestormfmd.scenescripter.mixin.EnderManAccessor;
@@ -83,7 +83,7 @@ public final class Capabilities {
 		});
 		add(new ChannelSpec<>("eating", ValueType.BOOL, false), "Grazing", AbstractHorse.class,
 				(e, v) -> ((AbstractHorse) e).setEating((Boolean) v));
-		add(new ChannelSpec<>("screaming", ValueType.BOOL, false), "Screaming", EnderMan.class,
+		add(new ChannelSpec<>("screaming", ValueType.BOOL, false), "Screaming", Compat.ENDERMAN,
 				(e, v) -> e.getEntityData().set(EnderManAccessor.scenescripter$creepyData(), (Boolean) v));
 		add(new ChannelSpec<>("profession", ValueType.ENUM, "none"), "Profession", Villager.class, (e, v) -> {
 			Villager villager = (Villager) e;
@@ -97,10 +97,10 @@ public final class Capabilities {
 		});
 		add(new ChannelSpec<>("head_shake", ValueType.BOOL, false), "Shaking head", AbstractVillager.class,
 				(e, v) -> ((AbstractVillager) e).setUnhappyCounter((Boolean) v ? 40 : 0));
-		add(new ChannelSpec<>("carried_block", ValueType.TEXT, ""), "Carrying", EnderMan.class, (e, v) -> {
+		add(new ChannelSpec<>("carried_block", ValueType.TEXT, ""), "Carrying", Compat.ENDERMAN, (e, v) -> {
 			String s = ((String) v).trim();
 			try {
-				((EnderMan) e).setCarriedBlock(s.isEmpty() ? null : BlockStateParser.parseForBlock(
+				Compat.setCarriedBlock(e, s.isEmpty() ? null : BlockStateParser.parseForBlock(
 						e.level().registryAccess().lookupOrThrow(Registries.BLOCK), s, false).blockState());
 			} catch (CommandSyntaxException ignored) {
 				// leave the block as it is until the value can be read

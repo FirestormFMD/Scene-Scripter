@@ -11,7 +11,6 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.entity.monster.Creeper;
-import net.minecraft.world.entity.monster.EnderMan;
 import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.npc.villager.VillagerProfession;
 import net.minecraft.world.entity.npc.villager.VillagerType;
@@ -21,6 +20,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 
 import io.github.firestormfmd.scenescripter.actor.Actors;
+import io.github.firestormfmd.scenescripter.compat.Compat;
 import io.github.firestormfmd.scenescripter.core.anim.Channel;
 import io.github.firestormfmd.scenescripter.core.anim.Interpolation;
 import io.github.firestormfmd.scenescripter.core.anim.Keyframe;
@@ -127,7 +127,7 @@ public class ActorGameTests {
 		helper.assertTrue(h.isStanding(), "horse rears");
 		helper.assertTrue(h.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.SADDLE).is(Items.SADDLE), "horse is saddled");
 		helper.assertTrue(h.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.BODY).is(Items.IRON_HORSE_ARMOR), "horse wears armor");
-		helper.assertTrue(((EnderMan) session.actors().actor("enderman").orElseThrow()).isCreepy(), "enderman screams");
+		helper.assertTrue(Compat.isScreaming(session.actors().actor("enderman").orElseThrow()), "enderman screams");
 		session.close();
 		helper.succeed();
 	}

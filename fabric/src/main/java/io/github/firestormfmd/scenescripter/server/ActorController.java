@@ -8,6 +8,7 @@ import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 
+import io.github.firestormfmd.scenescripter.compat.Compat;
 import io.github.firestormfmd.scenescripter.core.scene.BuiltInChannels;
 import io.github.firestormfmd.scenescripter.core.scene.SceneEvent;
 import io.github.firestormfmd.scenescripter.mixin.AbstractArrowAccessor;
@@ -374,7 +375,7 @@ public final class ActorController {
 			return null;
 		}
 		Actors.mark(e, o.id());
-		e.setInvulnerable(true);
+		Compat.setInvulnerable(e, true);
 		e.setNoGravity(true);
 		if (e instanceof Mob mob) {
 			mob.setNoAi(true);

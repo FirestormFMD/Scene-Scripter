@@ -15,6 +15,7 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 
+import io.github.firestormfmd.scenescripter.compat.Compat;
 import io.github.firestormfmd.scenescripter.core.scene.Scene;
 import io.github.firestormfmd.scenescripter.core.scene.SceneEvent;
 import io.github.firestormfmd.scenescripter.core.scene.SceneObject;
@@ -151,8 +152,7 @@ public class BlastGameTests {
 		}
 		helper.assertBlockPresent(Blocks.GOLD_BLOCK, new BlockPos(1, 1, 1));
 		helper.assertTrue(helper.getLevel().getServer().getWeatherData().isThundering(), "the scene makes it thunder");
-		long total = helper.getLevel().dimensionType().defaultClock()
-				.map(c -> helper.getLevel().clockManager().getTotalTicks(c)).orElse(-1L);
+		long total = Compat.dayClockTicks(helper.getLevel());
 		helper.assertTrue(Math.floorMod(total, 24000L) == 13000L, "the scene sets the time of day: " + total);
 
 		session.seek(0);

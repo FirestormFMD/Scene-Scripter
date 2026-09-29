@@ -20,6 +20,10 @@ loom {
 	}
 }
 
+// Code that differs between the Minecraft versions the mod builds for (-Pminecraft_version) lives in
+// src/versions/<version>; everything else is shared.
+sourceSets.main.java.srcDir "src/versions/${project.minecraft_version}/main/java"
+
 fabricApi {
 	// In-game tests live in src/gametest. Server game tests run with `build`, client game tests with
 	// `runClientGameTest` (CI runs them under xvfb).

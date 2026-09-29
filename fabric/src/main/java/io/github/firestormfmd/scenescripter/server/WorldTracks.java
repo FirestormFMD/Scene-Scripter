@@ -10,6 +10,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.WeatherData;
 
 import io.github.firestormfmd.scenescripter.SceneScripter;
+import io.github.firestormfmd.scenescripter.compat.Compat;
 import io.github.firestormfmd.scenescripter.core.runtime.SceneEvaluator;
 import io.github.firestormfmd.scenescripter.core.scene.SceneEvent;
 
@@ -48,7 +49,7 @@ final class WorldTracks {
 	private void setTimeOfDay(int timeOfDay) {
 		level.dimensionType().defaultClock().ifPresent(clock -> {
 			var clocks = level.clockManager();
-			long total = clocks.getTotalTicks(clock);
+			long total = Compat.dayClockTicks(level);
 			if (savedTime == null) {
 				savedTime = total;
 			}

@@ -19,6 +19,7 @@ import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
+import io.github.firestormfmd.scenescripter.compat.Compat;
 import io.github.firestormfmd.scenescripter.core.scene.ExplosionRules;
 import io.github.firestormfmd.scenescripter.core.scene.InteractionRules;
 import io.github.firestormfmd.scenescripter.core.scene.SceneEvent;
@@ -104,7 +105,7 @@ public final class EventPlayer {
 	private static void swing(Entity actor, SceneEvent event) {
 		if (actor instanceof LivingEntity living) {
 			boolean offhand = "off".equals(event.params().get("hand"));
-			living.swing(offhand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND, true);
+			Compat.swing(living, offhand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND);
 		}
 	}
 

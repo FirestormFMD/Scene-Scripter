@@ -26,6 +26,7 @@ import net.minecraft.world.level.Level;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import io.github.firestormfmd.scenescripter.SceneScripter;
+import io.github.firestormfmd.scenescripter.compat.Compat;
 import io.github.firestormfmd.scenescripter.core.edit.EditOp;
 import io.github.firestormfmd.scenescripter.core.io.EditOpCodec;
 import io.github.firestormfmd.scenescripter.core.io.SceneCodec;
@@ -393,7 +394,7 @@ public final class SceneManager {
 		int out = punchOut < 0 ? -1 : Math.clamp(punchOut, in + 1, session.scene().length());
 		CaptureSession c = new CaptureSession(player, object.id(), in, out, Math.max(0, preroll), loop);
 		captures.put(player.getUUID(), c);
-		player.setInvulnerable(true);
+		Compat.setInvulnerable(player, true);
 		beginPass(c);
 		ServerPlayNetworking.send(player, new Payloads.CaptureState(true, object.id()));
 	}
