@@ -1,20 +1,12 @@
-# batch 8
-lines server/level/ServerLevel.java 1207 1246
-grep world/clock/ServerClockManager.java public
-find TimeCommand.java
-find WeatherCommand.java
-grep world/entity/item/PrimedTnt.java public .*\(
-grep world/entity/monster/Creeper.java public .*\(
-grep world/entity/projectile/arrow/AbstractArrow.java public .*\(|IN_GROUND|void setInGround
-grep world/entity/boss/enderdragon/EndCrystal.java public .*\(
-grep world/level/block/LevelEvent.java PARTICLES_DESTROY_BLOCK|PARTICLES_SPELL_POTION_SPLASH|PARTICLES_EGG_CRACK|PARTICLES_SMOKE
-grep commands/arguments/blocks/BlockStateParser.java public static|public record
-grep server/level/TicketType.java record|register\(
-grep world/level/Level.java public void playSound\(|public void playSeededSound\(
-grep server/level/ServerLevel.java public <T extends ParticleOptions> int sendParticles|public void playSeededSound
-grep world/level/BlockGetter.java BlockEntity getBlockEntity|BlockState getBlockState|FluidState getFluidState|default BlockHitResult clip|static <T, C> T traverseBlocks
-grep world/level/LevelHeightAccessor.java int getHeight|int getMinY
-grep world/level/block/BaseFireBlock.java public static BlockState getState
-grep world/level/block/Block.java public float getExplosionResistance
-grep world/level/material/FluidState.java getExplosionResistance|public boolean isEmpty
-grep server/network/ServerGamePacketListenerImpl.java public void handleAnimate|public void handleUseItemOn|public void handlePlayerAction
+# batch 9
+grep server/commands/WeatherCommand.java setWeather|Weather\(|getLevel\(\)|private static int
+grep server/level/ServerLevel.java public void setWeather|public boolean isRaining|public boolean isThundering|WeatherData|weatherData
+method world/clock/ServerClockManager.java setTotalTicks
+grep world/level/dimension/DimensionType.java defaultClock
+grep world/entity/animal/sheep/Sheep.java public void setSheared|public void setColor
+grep world/entity/TamableAnimal.java public void setInSittingPose|public void setOrderedToSit
+grep world/entity/monster/EnderMan.java public void setCarriedBlock|public void setBeingStaredAt
+grep world/entity/Mob.java public void setLeftHanded|public void setAggressive
+grep world/entity/LivingEntity.java public void startUsingItem|public void stopUsingItem|public void releaseUsingItem
+find Sheep.java
+find EnderMan.java
