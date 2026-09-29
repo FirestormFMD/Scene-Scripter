@@ -6,11 +6,15 @@ import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.KeyMapping;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
 import io.github.firestormfmd.scenescripter.SceneScripter;
 import io.github.firestormfmd.scenescripter.client.editor.EditorMode;
+import io.github.firestormfmd.scenescripter.net.Payloads;
 
 public class SceneScripterClient implements ClientModInitializer {
 	private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(SceneScripter.id("main"));
@@ -23,13 +27,27 @@ public class SceneScripterClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			if (client.player == null) {
-				// Left the world; the editor never stays open across worlds.
 				EditorMode.reset();
 				return;
 			}
 			while (TOGGLE_EDITOR.consumeClick()) {
 				EditorMode.toggle(client);
 			}
+		});
+
+		ClientPlayNetworking.registerGlobalReceiver(Payloads.SceneData.TYPE, (payload, context) ->
+				ClientScene.onSceneData(payload.part()));
+		ClientPlayNetworking.registerGlobalReceiver(Payloads.PlaybackState.TYPE, (payload, context) ->
+				ClientScene.onState(payload));
+		ClientPlayNetworking.registerGlobalReceiver(Payloads.ActorIds.TYPE, (payload, context) ->
+				ClientScene.onActorIds(payload));
+		ClientPlayNetworking.registerGlobalReceiver(Payloads.SceneList.TYPE, (payload, context) ->
+				ClientScene.onSceneList(payload));
+
+		ClientEntityEvents.ENTITY_LOAD.register((entity, level) -> ClientScene.onEntityLoad(entity));
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+			EditorMode.reset();
+			ClientScene.reset();
 		});
 	}
 }

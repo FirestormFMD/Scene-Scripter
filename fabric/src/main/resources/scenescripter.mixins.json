@@ -1,0 +1,23 @@
+{
+	"required": true,
+	"package": "io.github.firestormfmd.scenescripter.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"ChunkMapMixin",
+		"CollidableOverridesMixin",
+		"EntityMixin",
+		"LightningBoltMixin",
+		"LivingEntityMixin",
+		"MannequinAccessor",
+		"PickableOverridesMixin",
+		"ProjectileHitMixin",
+		"PushableOverridesMixin",
+		"ServerLevelMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

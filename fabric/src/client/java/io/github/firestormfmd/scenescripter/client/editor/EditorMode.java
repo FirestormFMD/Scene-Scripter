@@ -3,8 +3,13 @@ package io.github.firestormfmd.scenescripter.client.editor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+
+import io.github.firestormfmd.scenescripter.client.SceneScripterClient;
+import io.github.firestormfmd.scenescripter.client.net.ClientNet;
+
 /**
- * Whether the scene editor is open on this client. The editor UI, tools and camera hang off this state.
+ * Whether the scene editor is open on this client.
  */
 public final class EditorMode {
 	private static boolean open;
@@ -17,15 +22,48 @@ public final class EditorMode {
 	}
 
 	public static void toggle(Minecraft client) {
-		open = !open;
-		if (client.player != null) {
-			client.player.sendOverlayMessage(Component.translatable(
-					open ? "scenescripter.editor.opened" : "scenescripter.editor.closed"));
+		if (open) {
+			close();
+		} else {
+			open(client);
 		}
 	}
 
-	/** Closes the editor without a message, such as when leaving a world. */
+	public static void open(Minecraft client) {
+		if (client.player == null) {
+			return;
+		}
+		if (!ClientNet.available()) {
+			client.player.sendOverlayMessage(Component.translatable("scenescripter.editor.no_server"));
+			return;
+		}
+		open = true;
+		ClientNet.editorState(true);
+		client.gui.setScreen(new EditorScreen());
+	}
+
+	public static void close() {
+		if (!open) {
+			return;
+		}
+		open = false;
+		EditorState.pathDraft.clear();
+		EditorState.dragPreview = null;
+		if (ClientNet.available()) {
+			ClientNet.editorState(false);
+		}
+		Minecraft client = Minecraft.getInstance();
+		if (client.gui.screen() instanceof EditorScreen) {
+			client.gui.setScreen(null);
+		}
+	}
+
+	/** Closes the editor without telling the server, such as when leaving a world. */
 	public static void reset() {
 		open = false;
+	}
+
+	public static boolean isToggleKey(int key) {
+		return KeyMappingHelper.getBoundKeyOf(SceneScripterClient.TOGGLE_EDITOR).getValue() == key;
 	}
 }
