@@ -81,7 +81,7 @@ To edit a path, select it and click one of its points (the selected point is dra
 
 A path that starts after an explosion follows the crater the explosion left.
 
-The selected object shows faint ghosts of where it will be a little before and after the playhead.
+The selected object shows faint ghosts of where it will be a little before and after the playhead, and its events for three seconds either side are marked in the world where it will be when they happen (purple for auto results). An object with attacks also shows how far it can hit from where it stands: a box for mobs, and for players a circle at eye height with a line where they look.
 
 ## Events and fights
 
@@ -105,7 +105,7 @@ Results the solver works out are marked "auto" and in purple. Editing one by han
 
 A TNT object explodes when its fuse runs out (80 ticks after it spawns by default), or at an explode event. Explosions break blocks using the vanilla algorithm with a fixed seed, so the crater is the same every time. TNT blocks caught in a blast become lit TNT with vanilla random fuses. Objects in range are hurt and thrown.
 
-Select the TNT to see every block it will break outlined in orange. Scrubbing back puts the blocks back, and closing the scene or the world restores everything. **Apply** (click twice) keeps the block changes up to the playhead in the world for good.
+Select the TNT to see every block it will break outlined in orange, and three rings showing how far the blast hurts and throws. Scrubbing back puts the blocks back, and closing the scene or the world restores everything. **Apply** (click twice) keeps the block changes up to the playhead in the world for good.
 
 ## Blocks
 

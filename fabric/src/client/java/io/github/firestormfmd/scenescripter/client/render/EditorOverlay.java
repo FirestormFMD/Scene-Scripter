@@ -54,6 +54,12 @@ public final class EditorOverlay implements DebugRenderer.SimpleDebugRenderer {
 	private static final int AXIS_Y = 0xFF5ADB5A;
 	private static final int AXIS_Z = 0xFF5A8CFF;
 	private static final int RING = 0xC0E0E0E0;
+	private static final int EVENT = 0xFFE8B04C;
+	private static final int AUTO = 0xFFB06CFF;
+	private static final int REACH = 0xA05ADB7A;
+	private static final int BLAST_RADIUS = 0x80FF7A2E;
+	/** Events of the selected object this many ticks either side of the playhead are marked in the world. */
+	private static final int EVENT_RANGE = 60;
 	/** Most blocks outlined for the selected object's blast; bigger craters show as one box. */
 	private static final int MAX_BLOCK_OUTLINES = 1500;
 	/** Ghosts are drawn this many ticks apart, this far either side of the playhead. */
@@ -93,6 +99,8 @@ public final class EditorOverlay implements DebugRenderer.SimpleDebugRenderer {
 					GizmoStyle.stroke(BOUNDS, 1f));
 		}
 		drawGhosts(scene);
+		drawEventMarkers(scene);
+		drawReach(scene);
 		drawShots(scene);
 		drawBlasts();
 
@@ -180,6 +188,76 @@ public final class EditorOverlay implements DebugRenderer.SimpleDebugRenderer {
 		}
 	}
 
+	/** The selected object's events near the playhead, marked where it will be when each happens. */
+	private void drawEventMarkers(Scene scene) {
+		SceneObject o = ClientScene.object(EditorState.selectedObject).orElse(null);
+		if (o == null) {
+			return;
+		}
+		int tick = ClientScene.tick();
+		double h = io.github.firestormfmd.scenescripter.server.EntityBodies.INSTANCE.bodyFor(o).height();
+		for (var e : o.events()) {
+			if (Math.abs(e.tick() - tick) > EVENT_RANGE || e.type().equals("mob_event") && e.isGenerated()) {
+				continue;
+			}
+			var s = evaluator.evaluate(o, e.tick());
+			if (!s.exists() && !e.type().equals("explode")) {
+				continue;
+			}
+			Vec3 at = mc(s.position()).add(0, h + 0.6, 0);
+			int color = e.isGenerated() ? AUTO : e.tick() == tick ? SELECTED : EVENT;
+			String what = e.type().equals("mob_event") ? String.valueOf(e.params().get("event")) : e.type();
+			Gizmos.point(at, color, 6f);
+			Gizmos.billboardText(what + " @" + e.tick(), at.add(0, 0.3, 0),
+					net.minecraft.gizmos.TextGizmo.Style.forColorAndCentered(color));
+		}
+	}
+
+	/** How far the selected attacker can hit from where it stands now, if it has attacks. */
+	private void drawReach(Scene scene) {
+		SceneObject o = ClientScene.object(EditorState.selectedObject).orElse(null);
+		if (o == null || o.events().stream().noneMatch(e -> e.type().equals("attack") && !e.isGenerated())) {
+			return;
+		}
+		var s = evaluator.evaluate(o, ClientScene.tick());
+		if (!s.exists()) {
+			return;
+		}
+		var body = io.github.firestormfmd.scenescripter.server.EntityBodies.INSTANCE.bodyFor(o);
+		Vec3 p = mc(s.position());
+		if (io.github.firestormfmd.scenescripter.core.solve.CombatModel.DEFAULT.isPlayerLike(o)) {
+			// Players reach three blocks from their eyes, towards where they look.
+			circle(p.add(0, body.height() * 0.85, 0), io.github.firestormfmd.scenescripter.core.solve.VanillaCombat.PLAYER_REACH,
+					0, REACH);
+			double yaw = Math.toRadians(s.headYaw());
+			Vec3 eye = p.add(0, body.height() * 0.85, 0);
+			Gizmos.line(eye, eye.add(-Math.sin(yaw) * 3, 0, Math.cos(yaw) * 3), REACH, 2f);
+		} else {
+			double r = body.width() / 2 + io.github.firestormfmd.scenescripter.core.solve.VanillaCombat.MOB_MELEE_REACH;
+			Gizmos.cuboid(new AABB(p.add(-r, 0, -r), p.add(r, body.height(), r)), GizmoStyle.stroke(REACH, 1.5f));
+		}
+	}
+
+	/** A circle around {@code c}: flat on the ground for plane 0, upright along X for 1 and along Z for 2. */
+	private static void circle(Vec3 c, double r, int plane, int color) {
+		int segments = 48;
+		Vec3 last = null;
+		for (int i = 0; i <= segments; i++) {
+			double a = 2 * Math.PI * i / segments;
+			double u = Math.cos(a) * r;
+			double v = Math.sin(a) * r;
+			Vec3 p = switch (plane) {
+				case 0 -> c.add(u, 0, v);
+				case 1 -> c.add(u, v, 0);
+				default -> c.add(0, v, u);
+			};
+			if (last != null) {
+				Gizmos.line(last, p, color, 1.5f);
+			}
+			last = p;
+		}
+	}
+
 	/** The flight of every shot the selected object fires. */
 	private void drawShots(Scene scene) {
 		String selected = EditorState.selectedObject;
@@ -220,6 +298,13 @@ public final class EditorOverlay implements DebugRenderer.SimpleDebugRenderer {
 			Vec3 c = mc(b.center());
 			Gizmos.billboardText("boom @" + b.tick() + " (" + b.power() + ")", c.add(0, 1.2, 0),
 					net.minecraft.gizmos.TextGizmo.Style.forColorAndCentered(BLAST));
+			if (mine) {
+				// Vanilla hurts and throws entities up to twice the power away.
+				double r = b.power() * 2;
+				circle(c, r, 0, BLAST_RADIUS);
+				circle(c, r, 1, BLAST_RADIUS);
+				circle(c, r, 2, BLAST_RADIUS);
+			}
 			int[] blocks = b.blocks();
 			if (blocks.length == 0) {
 				continue;
