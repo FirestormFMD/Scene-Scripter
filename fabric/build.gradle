@@ -20,6 +20,16 @@ loom {
 	}
 }
 
+fabricApi {
+	// In-game tests live in src/gametest. Server game tests run with `build`, client game tests with
+	// `runClientGameTest` (CI runs them under xvfb).
+	configureTests {
+		createSourceSet = true
+		modId = "scenescripter-test"
+		eula = true // Accepts the Minecraft EULA for the test server.
+	}
+}
+
 dependencies {
 	// To change the versions see the gradle.properties file
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
@@ -27,6 +37,7 @@ dependencies {
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
 	implementation project(':core')
+	gametestImplementation project(':core')
 }
 
 processResources {
