@@ -72,12 +72,13 @@ public final class EditorOverlay implements DebugRenderer.SimpleDebugRenderer {
 		if (scene == null || mc.level == null) {
 			return;
 		}
-		if (cachedVersion != ClientScene.version() || evaluator == null || evaluator.scene() != scene) {
+		if (cachedVersion != ClientScene.version()) {
 			cachedVersion = ClientScene.version();
 			previews.clear();
-			evaluator = new io.github.firestormfmd.scenescripter.core.runtime.SceneEvaluator(scene,
-					new LevelTerrain(mc.level, scene.settings().groundFilter()),
-					io.github.firestormfmd.scenescripter.server.EntityBodies.INSTANCE);
+		}
+		evaluator = ClientScene.evaluator().orElse(null);
+		if (evaluator == null) {
+			return;
 		}
 
 		if (scene.bounds() != null) {

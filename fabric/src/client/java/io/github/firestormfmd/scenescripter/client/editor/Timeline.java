@@ -34,6 +34,17 @@ final class Timeline {
 	private int dragFrom = -1;
 	private int dragTo = -1;
 	private int lastSeek = -1;
+	/** Curve editing: the key or handle being dragged ({@code 0} key, {@code -1} in handle, {@code 1} out handle). */
+	private String curveChannel;
+	private int curveKey = -1;
+	private int curveHandle;
+	private double curveDragTick;
+	private double curveDragValue;
+	private boolean curveDragging;
+	private double graphMin;
+	private double graphMax;
+	private int graphY;
+	private int graphH;
 
 	Timeline(EditorScreen screen) {
 		this.screen = screen;
@@ -97,6 +108,8 @@ final class Timeline {
 		SceneObject o = ClientScene.object(EditorState.selectedObject).orElse(null);
 		if (o == null) {
 			ui.text("Select an object to see its keyframes", x + 6, rowY + 2, Ui.TEXT_DIM);
+		} else if (EditorState.curveMode && curveChannel(o) != null) {
+			curves(o, curveChannel(o), rowY);
 		} else {
 			rowY = objectRows(o, rowY);
 		}
@@ -142,6 +155,13 @@ final class Timeline {
 			}
 		});
 		bx += 42;
+		ui.button(bx, by, 44, 12, "Curves", EditorState.curveMode, () -> {
+			EditorState.curveMode = !EditorState.curveMode;
+			if (EditorState.curveMode && EditorState.selectedChannel == null) {
+				screen.status("Click a number channel's name, then Curves shows it as a graph");
+			}
+		});
+		bx += 46;
 		ui.button(bx, by, 60, 12, "Length...", false, () -> screen.editText(x + 4, y + 3, 80, String.valueOf(scene.length()), v -> {
 			try {
 				int len = Math.max(20, Integer.parseInt(v.trim()));
@@ -203,6 +223,7 @@ final class Timeline {
 			String name = row.getKey();
 			boolean rowSelected = name.equals(EditorState.selectedChannel);
 			ui.text(ui.fit(name, LABELS - 8), x + 6, rowY + 2, rowSelected ? Ui.KEY : Ui.TEXT);
+			ui.area(x + 2, rowY, LABELS - 4, Ui.ROW_HEIGHT, (b, mx, my) -> EditorState.selectedChannel = name);
 			for (Keyframe<?> k : row.getValue().keys()) {
 				int kt = name.equals(dragChannel) && k.tick() == dragFrom && dragTo >= 0 ? dragTo : k.tick();
 				int kx = tickToX(kt);
@@ -232,6 +253,210 @@ final class Timeline {
 		return rowY;
 	}
 
+	// ---- Curve editor ----
+
+	/** The selected channel if it holds a single number, which is what the curve editor can show. */
+	private static Channel<?> curveChannel(SceneObject o) {
+		if (EditorState.selectedChannel == null) {
+			return null;
+		}
+		Channel<?> ch = o.channel(EditorState.selectedChannel).orElse(null);
+		if (ch == null || !ch.type().interpolates() || ch.type().components() != 1 || ch.isEmpty()) {
+			return null;
+		}
+		return ch;
+	}
+
+	private static double number(Object v) {
+		return v instanceof Number n ? n.doubleValue() : 0;
+	}
+
+	private int valueToY(double v) {
+		return graphY + graphH - (int) Math.round((v - graphMin) / (graphMax - graphMin) * graphH);
+	}
+
+	private double yToValue(double py) {
+		return graphMin + (graphY + graphH - py) / graphH * (graphMax - graphMin);
+	}
+
+	private double xToTickExact(double px) {
+		double f = (px - trackX()) / trackW();
+		return EditorState.viewStart + f * (EditorState.viewEnd - EditorState.viewStart);
+	}
+
+	/**
+	 * Draws the channel as a curve. Drag keys to change their time and value; Bezier keys show handles to drag;
+	 * right-click a key to change its curve type.
+	 */
+	private void curves(SceneObject o, Channel<?> ch, int top) {
+		Ui ui = screen.ui();
+		String name = EditorState.selectedChannel;
+		ui.text(ui.fit(name, LABELS - 8), x + 6, top + 2, Ui.KEY);
+		ui.text("drag keys", x + 6, top + 14, Ui.TEXT_DIM);
+		ui.text("and handles", x + 6, top + 24, Ui.TEXT_DIM);
+		graphY = top + 2;
+		graphH = Math.max(20, y + h - graphY - 6);
+		if (!curveDragging) {
+			double min = Double.MAX_VALUE;
+			double max = -Double.MAX_VALUE;
+			int step = Math.max(1, (EditorState.viewEnd - EditorState.viewStart) / 200);
+			for (int t = EditorState.viewStart; t <= EditorState.viewEnd; t += step) {
+				double v = number(ch.valueAt(t));
+				min = Math.min(min, v);
+				max = Math.max(max, v);
+			}
+			for (Keyframe<?> k : ch.keys()) {
+				double v = number(k.value());
+				min = Math.min(min, v);
+				max = Math.max(max, v);
+			}
+			if (max - min < 1.0e-6) {
+				min -= 1;
+				max += 1;
+			}
+			double pad = (max - min) * 0.1;
+			graphMin = min - pad;
+			graphMax = max + pad;
+		}
+		ui.fill(trackX(), graphY, trackW(), graphH, Ui.PANEL_DARK);
+		for (int i = 0; i <= 4; i++) {
+			double v = graphMin + (graphMax - graphMin) * i / 4;
+			int gy = valueToY(v);
+			ui.fill(trackX(), gy, trackW(), 1, 0x30FFFFFF);
+			ui.text(String.format(java.util.Locale.ROOT, "%.1f", v), trackX() + 2, gy - 9, Ui.TEXT_DIM);
+		}
+
+		// The curve, one column at a time.
+		int prevY = Integer.MIN_VALUE;
+		for (int px = 0; px < trackW(); px++) {
+			double t = xToTickExact(trackX() + px);
+			int cy = Math.clamp(valueToY(number(ch.valueAt(t))), graphY, graphY + graphH);
+			int y0 = prevY == Integer.MIN_VALUE ? cy : Math.min(prevY, cy);
+			int y1 = prevY == Integer.MIN_VALUE ? cy : Math.max(prevY, cy);
+			ui.fill(trackX() + px, y0, 1, Math.max(1, y1 - y0 + 1), 0xFF6EC8FF);
+			prevY = cy;
+		}
+
+		List<? extends Keyframe<?>> keys = ch.keys();
+		for (int i = 0; i < keys.size(); i++) {
+			Keyframe<?> k = keys.get(i);
+			boolean dragged = curveDragging && name.equals(curveChannel) && k.tick() == curveKey;
+			double kt = dragged && curveHandle == 0 ? curveDragTick : k.tick();
+			double kv = dragged && curveHandle == 0 ? curveDragValue : number(k.value());
+			int kx = tickToX((int) Math.round(kt));
+			int ky = valueToY(kv);
+			if (kx < trackX() - 4 || kx > trackX() + trackW() + 4) {
+				continue;
+			}
+			if (k.interpolation() == io.github.firestormfmd.scenescripter.core.anim.Interpolation.BEZIER || k.handles() != null) {
+				io.github.firestormfmd.scenescripter.core.anim.Handles hd = handlesOf(keys, i);
+				for (int side : new int[] {-1, 1}) {
+					double dt = side < 0 ? hd.inDt() : hd.outDt();
+					double dv = side < 0 ? hd.inDv() : hd.outDv();
+					if (dragged && curveHandle == side) {
+						dt = curveDragTick - k.tick();
+						dv = curveDragValue - number(k.value());
+					}
+					int hx = tickToX((int) Math.round(k.tick() + dt));
+					int hy = valueToY(number(k.value()) + dv);
+					line(ui, kx, ky, hx, hy, 0x90FFFFFF);
+					ui.fill(hx - 2, hy - 2, 5, 5, 0xFFFFFFFF);
+					final int s = side;
+					final int keyTick = k.tick();
+					ui.area(hx - 3, hy - 3, 7, 7, (b, mx, my) -> startCurveDrag(name, keyTick, s, mx, my));
+				}
+			}
+			ui.diamond(kx, ky, 3, k.isGenerated() ? 0xFFB06CFF : Ui.KEY, true);
+			final int keyTick = k.tick();
+			ui.area(kx - 4, ky - 4, 9, 9, (b, mx, my) -> {
+				EditorState.selectedKeyTick = keyTick;
+				if (b == 1) {
+					EditActions.cycleInterpolation(o, name, keyTick);
+					screen.status("Curve: " + nextInterpolationName(o, name, keyTick));
+				} else {
+					startCurveDrag(name, keyTick, 0, mx, my);
+				}
+			});
+		}
+	}
+
+	/** A key's handles: its own, or flat ones a third of the way to its neighbours. */
+	private static io.github.firestormfmd.scenescripter.core.anim.Handles handlesOf(List<? extends Keyframe<?>> keys, int i) {
+		Keyframe<?> k = keys.get(i);
+		if (k.handles() != null) {
+			return k.handles();
+		}
+		double before = i > 0 ? (k.tick() - keys.get(i - 1).tick()) / 3.0 : 5;
+		double after = i + 1 < keys.size() ? (keys.get(i + 1).tick() - k.tick()) / 3.0 : 5;
+		return new io.github.firestormfmd.scenescripter.core.anim.Handles(-before, 0, after, 0);
+	}
+
+	private void startCurveDrag(String channel, int keyTick, int handle, double mx, double my) {
+		curveChannel = channel;
+		curveKey = keyTick;
+		curveHandle = handle;
+		curveDragTick = xToTickExact(mx);
+		curveDragValue = yToValue(my);
+		curveDragging = true;
+		EditorState.selectedKeyTick = keyTick;
+	}
+
+	private static void line(Ui ui, int x0, int y0, int x1, int y1, int color) {
+		int steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+		for (int i = 0; i <= steps; i++) {
+			double f = steps == 0 ? 0 : (double) i / steps;
+			ui.fill((int) Math.round(x0 + (x1 - x0) * f), (int) Math.round(y0 + (y1 - y0) * f), 1, 1, color);
+		}
+	}
+
+	/** Writes the dragged key or handle back as an edit. */
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	private void finishCurveDrag() {
+		curveDragging = false;
+		SceneObject o = ClientScene.object(EditorState.selectedObject).orElse(null);
+		Channel ch = o == null ? null : o.channel(curveChannel).orElse(null);
+		if (ch == null) {
+			return;
+		}
+		List<Keyframe<?>> keys = ch.keys();
+		int index = -1;
+		for (int i = 0; i < keys.size(); i++) {
+			if (keys.get(i).tick() == curveKey) {
+				index = i;
+			}
+		}
+		if (index < 0) {
+			return;
+		}
+		Keyframe<?> k = keys.get(index);
+		Object value;
+		int tick = k.tick();
+		io.github.firestormfmd.scenescripter.core.anim.Handles handles = k.handles();
+		io.github.firestormfmd.scenescripter.core.anim.Interpolation interp = k.interpolation();
+		if (curveHandle == 0) {
+			tick = Math.max(0, (int) Math.round(curveDragTick));
+			value = ch.type() == io.github.firestormfmd.scenescripter.core.anim.ValueType.INT
+					? (Object) (int) Math.round(curveDragValue) : (Object) curveDragValue;
+		} else {
+			value = k.value();
+			var hd = handlesOf(keys, index);
+			double dt = curveDragTick - k.tick();
+			double dv = curveDragValue - number(k.value());
+			handles = curveHandle < 0
+					? new io.github.firestormfmd.scenescripter.core.anim.Handles(Math.min(-0.5, dt), dv, hd.outDt(), hd.outDv())
+					: new io.github.firestormfmd.scenescripter.core.anim.Handles(hd.inDt(), hd.inDv(), Math.max(0.5, dt), dv);
+			interp = io.github.firestormfmd.scenescripter.core.anim.Interpolation.BEZIER;
+		}
+		java.util.List<io.github.firestormfmd.scenescripter.core.edit.EditOp> ops = new java.util.ArrayList<>();
+		if (tick != k.tick()) {
+			ops.add(new io.github.firestormfmd.scenescripter.core.edit.Edits.RemoveKeyframe(o.id(), curveChannel, k.tick()));
+		}
+		ops.add(new io.github.firestormfmd.scenescripter.core.edit.Edits.SetKeyframe(o.id(), curveChannel,
+				new Keyframe<>(tick, value, interp, handles, null)));
+		ClientNet.edit(new io.github.firestormfmd.scenescripter.core.edit.Edits.Composite("Edit curve", ops));
+		EditorState.selectedKeyTick = tick;
+	}
+
 	private static String nextInterpolationName(SceneObject o, String channel, int tick) {
 		return o.channel(channel).flatMap(ch -> ch.keyAt(tick))
 				.map(k -> io.github.firestormfmd.scenescripter.core.anim.Interpolation.values()[
@@ -252,6 +477,11 @@ final class Timeline {
 	}
 
 	boolean mouseDragged(double mx, double my, int button) {
+		if (curveDragging && button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+			curveDragTick = xToTickExact(mx);
+			curveDragValue = yToValue(my);
+			return true;
+		}
 		if (scrubbing) {
 			seekTo(xToTick(mx));
 			return true;
@@ -264,6 +494,10 @@ final class Timeline {
 	}
 
 	boolean mouseReleased(double mx, double my, int button) {
+		if (curveDragging) {
+			finishCurveDrag();
+			return true;
+		}
 		if (scrubbing) {
 			scrubbing = false;
 			lastSeek = -1;

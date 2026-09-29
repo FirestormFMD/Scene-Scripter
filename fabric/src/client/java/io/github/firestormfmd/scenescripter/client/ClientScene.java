@@ -37,6 +37,8 @@ public final class ClientScene {
 	private static List<Blast> explosions = List.of();
 	private static List<TakeInfo> takes = List.of();
 	private static boolean capturing;
+	private static io.github.firestormfmd.scenescripter.core.runtime.SceneEvaluator evaluator;
+	private static long evaluatorVersion = -1;
 
 	/** A recorded take of an object, as listed in the inspector. */
 	public record TakeInfo(String id, String objectId, String name, int start, int end) {
@@ -91,6 +93,42 @@ public final class ClientScene {
 
 	public static List<TakeInfo> takes() {
 		return takes;
+	}
+
+	/** Evaluates the client's copy of the scene, rebuilt whenever a new copy arrives. */
+	public static Optional<io.github.firestormfmd.scenescripter.core.runtime.SceneEvaluator> evaluator() {
+		Minecraft mc = Minecraft.getInstance();
+		if (scene == null || mc.level == null) {
+			return Optional.empty();
+		}
+		if (evaluator == null || evaluatorVersion != version || evaluator.scene() != scene) {
+			evaluator = new io.github.firestormfmd.scenescripter.core.runtime.SceneEvaluator(scene,
+					new io.github.firestormfmd.scenescripter.server.LevelTerrain(mc.level, scene.settings().groundFilter()),
+					io.github.firestormfmd.scenescripter.server.EntityBodies.INSTANCE);
+			evaluatorVersion = version;
+		}
+		return Optional.of(evaluator);
+	}
+
+	/**
+	 * While the editor is paused, sets the client-side parts of actors that vanilla animates by itself from the
+	 * timeline, so a scrub into the middle of a death shows the body at the right angle.
+	 */
+	public static void applyScrubOverrides() {
+		if (scene == null || state.playing()) {
+			return;
+		}
+		evaluator().ifPresent(eval -> {
+			for (SceneObject o : scene.objects()) {
+				Entity e = actor(o.id()).orElse(null);
+				if (e instanceof net.minecraft.world.entity.LivingEntity living) {
+					var s = eval.evaluate(o, state.tick());
+					if (s.dead() && s.ticksDead() >= 0) {
+						living.deathTime = Math.min(s.ticksDead(), 19);
+					}
+				}
+			}
+		});
 	}
 
 	/** Whether this player is performing an object right now. */

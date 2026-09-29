@@ -28,6 +28,8 @@ public final class EditorState {
 	public static @Nullable String hoveredObject;
 	public static Tool tool = Tool.SELECT;
 	public static BlockAction blockAction = BlockAction.BREAK;
+	/** Shows the selected numeric channel as a curve instead of rows of keys. */
+	public static boolean curveMode;
 	public static io.github.firestormfmd.scenescripter.core.crowd.Formation crowdFormation =
 			io.github.firestormfmd.scenescripter.core.crowd.Formation.GRID;
 	public static int crowdCount = 8;

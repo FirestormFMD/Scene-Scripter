@@ -91,9 +91,11 @@ public final class ActorController {
 	public boolean update(SceneEvaluator evaluator, int tick, boolean jump) {
 		boolean changed = false;
 		Set<String> seen = new HashSet<>();
+		Map<String, ObjectState> states = new HashMap<>();
 		for (SceneObject o : evaluator.scene().objects()) {
 			seen.add(o.id());
 			ObjectState s = evaluator.evaluate(o, tick);
+			states.put(o.id(), s);
 			boolean gone = s.dead() && s.ticksDead() >= DEATH_ANIMATION_TICKS;
 			boolean visible = s.exists() && !gone && !hidden.contains(o.id());
 			Entity e = actors.get(o.id());
@@ -138,7 +140,7 @@ public final class ActorController {
 				ambientEffects(o, e, s, tick);
 			}
 		}
-		ride(evaluator, tick);
+		ride(states);
 		for (Iterator<String> it = actors.keySet().iterator(); it.hasNext(); ) {
 			String id = it.next();
 			if (!seen.contains(id)) {
@@ -196,10 +198,10 @@ public final class ActorController {
 	 * Seats riders on their vehicles. Vanilla positions passengers while ticking them, which actors never do, so the
 	 * vehicle places each rider here after both have been moved.
 	 */
-	private void ride(SceneEvaluator evaluator, int tick) {
+	private void ride(Map<String, ObjectState> states) {
 		for (Map.Entry<String, Entity> entry : actors.entrySet()) {
 			Entity rider = entry.getValue();
-			ObjectState s = evaluator.evaluate(entry.getKey(), tick).orElse(null);
+			ObjectState s = states.get(entry.getKey());
 			if (s == null) {
 				continue;
 			}

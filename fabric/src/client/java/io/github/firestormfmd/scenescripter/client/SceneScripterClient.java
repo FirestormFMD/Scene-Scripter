@@ -30,6 +30,9 @@ public class SceneScripterClient implements ClientModInitializer {
 				EditorMode.reset();
 				return;
 			}
+			if (io.github.firestormfmd.scenescripter.client.editor.EditorMode.isOpen()) {
+				ClientScene.applyScrubOverrides();
+			}
 			while (TOGGLE_EDITOR.consumeClick()) {
 				if (ClientScene.capturing()) {
 					// While performing, the editor key ends the take instead.
