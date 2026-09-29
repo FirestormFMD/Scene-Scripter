@@ -36,6 +36,40 @@ jobs:
           name: Artifacts
           path: fabric/build/libs/
 
+  # The port to Minecraft 26.3: builds and tests the same sources against 26.3 and runs the client game tests beside
+  # Flashback's 26.3 build (Replay Mod has none yet).
+  minecraft_26_3:
+    runs-on: ubuntu-24.04
+    env:
+      VERSIONS: -Pminecraft_version=26.3 -Pfabric_api_version=0.161.0+26.3
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+      - name: setup jdk
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'microsoft'
+      - name: install xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
+      - name: build
+        run: ./gradlew build $VERSIONS
+      - name: run client game tests beside flashback
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew :fabric:runClientGameTest $VERSIONS -Precorder=flashback
+      - name: capture reports, screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: minecraft-26.3
+          path: |
+            **/build/reports/
+            fabric/build/libs/
+            fabric/build/run/**/screenshots/
+            fabric/build/run/**/logs/
+            fabric/build/run/**/crash-reports/
+
   client_game_test:
     runs-on: ubuntu-24.04
     strategy:

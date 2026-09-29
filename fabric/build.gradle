@@ -44,10 +44,13 @@ repositories {
 	}
 }
 
-// The recorders the client game test can run beside, by Modrinth version ID (the 26.2 builds).
+// The recorders the client game test can run beside, by Minecraft version and Modrinth version ID.
 // `./gradlew :fabric:runClientGameTest -Precorder=flashback` (or replaymod) adds one to the game; it is never
-// part of the mod.
-def recorders = [flashback: 'Um7qd3Na', replaymod: '5YS1OgDP']
+// part of the mod. Replay Mod has no 26.3 build yet.
+def recorders = [
+	'26.2': [flashback: 'Um7qd3Na', replaymod: '5YS1OgDP'],
+	'26.3': [flashback: 'cV1pa0YV'],
+].get(project.minecraft_version, [:])
 
 dependencies {
 	def recorder = project.findProperty('recorder')
@@ -66,10 +69,12 @@ dependencies {
 
 processResources {
 	def version = project.version
+	def minecraftVersion = project.minecraft_version
 	inputs.property "version", version
+	inputs.property "minecraft_version", minecraftVersion
 
 	filesMatching("fabric.mod.json") {
-		expand "version": version
+		expand "version": version, "minecraft_version": minecraftVersion
 	}
 }
 

@@ -32,11 +32,19 @@ dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
-	// Flashback 0.43.6 or Replay Mod 2.6.27 for Minecraft 26.2, by Modrinth version ID.
-	// The property is shared with the fabric project's client game tests, where "none" is also used.
-	def recorders = [flashback: 'Um7qd3Na', replaymod: '5YS1OgDP']
-	def recorder = recorders.containsKey(project.findProperty('recorder')) ? project.findProperty('recorder') : 'replaymod'
-	localRuntime "maven.modrinth:${recorder}:${recorders[recorder]}"
+	// Flashback 0.43.6 or Replay Mod 2.6.27, by Minecraft version and Modrinth version ID (Replay Mod has no 26.3
+	// build yet). The property is shared with the fabric project's client game tests, where "none" is also used.
+	def recorders = [
+		'26.2': [flashback: 'Um7qd3Na', replaymod: '5YS1OgDP'],
+		'26.3': [flashback: 'cV1pa0YV'],
+	].get(project.minecraft_version, [:])
+	def recorder = project.findProperty('recorder')
+	if (!recorders.containsKey(recorder)) {
+		recorder = recorders.containsKey('replaymod') ? 'replaymod' : 'flashback'
+	}
+	if (recorders.containsKey(recorder)) {
+		localRuntime "maven.modrinth:${recorder}:${recorders[recorder]}"
+	}
 }
 
 java {
