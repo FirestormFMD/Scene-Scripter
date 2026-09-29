@@ -35,7 +35,9 @@ Right Ctrl opens and closes the editor (rebind it under Controls). While it is o
 | I | Key the selected actor's position at the playhead |
 | R | Turn the selected actor 45° and key it |
 | F | Frame the selected actor |
+| G | Snap placing, dragging and path points to half blocks or block centres (press again to change, again to turn off) |
 | Ctrl+D | Duplicate the selected object |
+| Ctrl+C / Ctrl+V | Copy the selected keyframes / paste them at the playhead |
 | Delete | Delete the selection |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 | Ctrl+S | Save |
@@ -43,15 +45,15 @@ Right Ctrl opens and closes the editor (rebind it under Controls). While it is o
 The screen has four parts:
 
 - **Top bar:** scenes, save and close, undo and redo, the tools (Select, Place, Path, Blocks), **Bounds**, **Record** and **Apply**.
-- **Outliner (left):** the scene track, every object, and every path.
+- **Outliner (left):** the scene track, every object, and every path. Each object has three toggles: **V** hides it, **L** locks it so clicks in the world pass through it, and **S** shows it alone. Hidden objects only disappear while the editor is open, so they are never missing from a recording.
 - **Inspector (right):** everything about the selection. A diamond next to a value keys it at the playhead; clicking the value changes it and keys it.
-- **Timeline (bottom):** play controls, speed, loop, the ruler, and the selected object's lifetime, motion clips, events and keyframes. Drag keys to move them, right-click a key to change its curve, scroll to zoom. **Curves** shows the selected number channel as a graph with draggable keys and Bézier handles; click a channel's name to select it first.
+- **Timeline (bottom):** play controls, speed, loop, the ruler, and the selected object's lifetime, motion clips, events and keyframes. Drag keys to move them, right-click a key to change its curve, scroll to zoom. Drag a box on empty track space to select several keys, then drag them together, copy them, or delete them. **Curves** shows the selected number channel as a graph with draggable keys and Bézier handles; click a channel's name to select it first.
 
 When the editor is closed, the scene stays visible, frozen at the playhead. Actors can't be pushed, hit, shot, ridden or targeted by anything that isn't part of the scene.
 
 ## Objects
 
-Click **Place** (or **+ Add** in the outliner), choose a type from the palette, and click the ground. Player objects are vanilla Mannequins: set their skin by username in the inspector.
+Click **Place** (or **+ Add** in the outliner), choose a type from the palette, and click the ground. Player objects are vanilla Mannequins: set their skin by username in the inspector, or use **Skin file** to take the skin from a resource pack texture (for `myskins:entity/knight`, the pack holds `assets/myskins/textures/entity/knight.png`), and **Arms** to choose slim or wide.
 
 Every object has:
 
@@ -65,7 +67,7 @@ Health is not real health. It is a number that attacks subtract from and that ca
 
 Choose **Path**, click along the ground to add points, and press **Enter**. **Tab** switches between a ground path, which follows the terrain, and an air path, which flies. Select an object and use **Walk** in its inspector to put it on the last selected path at the playhead.
 
-Ground paths snap to real blocks. Objects step up single blocks, jump up higher ledges with a real jump arc, and fall off edges. Select a path to change its gait (walk, sprint, sneak), speed, speed keys, jump height, and wait, jump and gait markers. Problems such as a wall that is too high show in red in the world.
+Ground paths snap to real blocks. What counts as ground is set with nothing selected, under **Ground for paths**: a preset (natural ground, all solid blocks, or terrain only), blocks or tags that never count, blocks that also count, and whether paths swim, walk along the bottom of water, or treat it as a wall. Objects step up single blocks, jump up higher ledges with a real jump arc, and fall off edges. Select a path to change its gait (walk, sprint, sneak), speed, speed keys, jump height, and wait, jump and gait markers. Problems such as a wall that is too high show in red in the world.
 
 The selected object shows faint ghosts of where it will be a little before and after the playhead.
 
@@ -147,5 +149,5 @@ Everything lives in the world folder under `scene_scripter/`:
 
 - `scenes/<name>.json`: the scene. `scenes/<name>.takes.gz`: its performance-capture takes.
 - `backups/`: the last five saves of each scene.
-- `exports/`: shared scene files for `/scene export` and `/scene import`.
+- `exports/`: shared scene files for `/scene export` (or **Export** in the scene browser) and `/scene import`.
 - `journal.json.gz`: what the open scene changed in the world, written before each change, so the world is repaired on the next start if the game stops mid-scene.
