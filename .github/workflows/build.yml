@@ -40,6 +40,7 @@ jobs:
   # Flashback's 26.3 build (Replay Mod has none yet).
   minecraft_26_3:
     runs-on: ubuntu-24.04
+    timeout-minutes: 40
     env:
       VERSIONS: -Pminecraft_version=26.3 -Pfabric_api_version=0.161.0+26.3
     steps:
@@ -50,12 +51,19 @@ jobs:
         with:
           java-version: '25'
           distribution: 'microsoft'
-      - name: install xvfb
-        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - name: install xvfb and a software vulkan driver
+        run: sudo apt-get update && sudo apt-get install -y xvfb mesa-vulkan-drivers
       - name: make gradle wrapper executable
         run: chmod +x ./gradlew
       - name: build
         run: ./gradlew build $VERSIONS
+      # 26.3 draws through SDL with an OpenGL or a Vulkan backend. Under xvfb OpenGL finds no matching GLX visual, so
+      # the tests use Vulkan on Mesa's software driver, as Fabric API's own CI does.
+      - name: prefer the vulkan backend
+        run: |
+          mkdir -p fabric/build/run/clientGameTest
+          echo 'version:4896' >> fabric/build/run/clientGameTest/options.txt
+          echo 'preferredGraphicsBackend:"vulkan"' >> fabric/build/run/clientGameTest/options.txt
       - name: run client game tests beside flashback
         run: xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew :fabric:runClientGameTest $VERSIONS -Precorder=flashback
       - name: capture reports, screenshots and logs
@@ -72,6 +80,7 @@ jobs:
 
   client_game_test:
     runs-on: ubuntu-24.04
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -114,6 +123,7 @@ jobs:
   replay_without_scene_scripter:
     needs: client_game_test
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
