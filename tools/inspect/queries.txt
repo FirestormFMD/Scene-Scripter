@@ -1,6 +1,4 @@
-# batch 22: input constants and arm swings, in 26.2 (this run) and 26.3 (next)
+# batch 23: the swing state in 26.3
 minecraft 26.3 0.161.0+26.3
-findall InputConstants.java
-grep ../../com/mojang/blaze3d/platform/InputConstants.java (KEY_|MOUSE_BUTTON|MOD_|enum Type|KEYSYM|KEYBOARD|isKeyDown)
-grep world/entity/LivingEntity.java (swinging|swingTime|public .*[Ss]wing)
-grep client/input/InputWithModifiers.java (default|int modifiers)
+grep world/entity/LivingEntity.java (SwingState|swingState|getCurrentSwingDuration|attackAnim)
+lines world/entity/LivingEntity.java 4078 4140
