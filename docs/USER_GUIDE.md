@@ -139,6 +139,8 @@ The first row of the outliner is the scene track. It holds:
 
 ## Recording
 
+Scene Scripter is tested beside Flashback 0.43.6 and Replay Mod 2.6.27 for Minecraft 26.2.
+
 1. Press **Bounds** once so the scene's chunks stay loaded while it plays.
 2. Start recording in Flashback or Replay Mod.
 3. Press **Record** in the editor, or run `/scene record`. The editor closes so no overlay shows, the scene rewinds, holds its first frame for two seconds with every actor in place, and plays at normal speed.
