@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -72,6 +73,9 @@ public final class ActorController {
 	private final Set<String> hidden = new HashSet<>();
 
 	private final SceneDrops drops;
+	/** Game time each actor was spawned, and actors whose item use waits for clients to have their equipment. */
+	private final Map<String, Long> spawnedAt = new HashMap<>();
+	private final Set<String> pendingUse = new HashSet<>();
 
 	public ActorController(ServerLevel level, SceneDrops drops) {
 		this.level = level;
@@ -157,7 +161,11 @@ public final class ActorController {
 				spawnedNow = !jump && !existedBefore;
 				snap = true;
 			}
-			ActorApplier.apply(level, e, s, snap);
+			if (ActorApplier.apply(level, e, s, snap, settled(o.id()))) {
+				pendingUse.add(o.id());
+			} else {
+				pendingUse.remove(o.id());
+			}
 			typeSpecific(evaluator, o, e, s, tick);
 			if (spawnedNow && "poof".equals(o.appearance().get("spawn_effect"))) {
 				level.broadcastEntityEvent(e, POOF_EVENT);
@@ -301,6 +309,33 @@ public final class ActorController {
 		}
 	}
 
+	/** Whether clients have had the actor long enough to have received its equipment. */
+	private boolean settled(String objectId) {
+		Long at = spawnedAt.get(objectId);
+		return at != null && level.getGameTime() - at >= 2;
+	}
+
+	/**
+	 * Called every server tick, also while paused: starts the item uses that were waiting for clients to receive
+	 * the actor's equipment.
+	 */
+	public void settle(SceneEvaluator evaluator, int tick) {
+		if (pendingUse.isEmpty()) {
+			return;
+		}
+		for (String id : List.copyOf(pendingUse)) {
+			Entity e = actors.get(id);
+			SceneObject o = evaluator.scene().object(id).orElse(null);
+			if (e == null || o == null) {
+				pendingUse.remove(id);
+				continue;
+			}
+			if (!ActorApplier.apply(level, e, evaluator.evaluate(o, tick), false, settled(id))) {
+				pendingUse.remove(id);
+			}
+		}
+	}
+
 	/** Removes every actor, for closing a scene or stopping the server. */
 	public void removeAll() {
 		actors.values().forEach(Entity::discard);
@@ -308,6 +343,8 @@ public final class ActorController {
 		spawnedLook.clear();
 		wasDead.clear();
 		existed.clear();
+		spawnedAt.clear();
+		pendingUse.clear();
 		stepDistance.clear();
 	}
 
@@ -378,6 +415,7 @@ public final class ActorController {
 			return null;
 		}
 		actors.put(o.id(), e);
+		spawnedAt.put(o.id(), level.getGameTime());
 		spawnedLook.put(o.id(), Map.copyOf(o.appearance()));
 		return e;
 	}

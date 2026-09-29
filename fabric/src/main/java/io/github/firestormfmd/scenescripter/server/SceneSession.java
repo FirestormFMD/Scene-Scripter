@@ -214,6 +214,7 @@ public final class SceneSession {
 			applyStep(step.get());
 			stateChanged = true;
 		}
+		actors.settle(evaluator, clock.tick());
 	}
 
 	private void refreshAfterEdit() {

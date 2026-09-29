@@ -58,8 +58,8 @@ public class MannequinClientGameTest implements FabricClientGameTest {
 						"is not drawing the bow");
 				expect(out, "eater", m.get("eater").isUsingItem() && m.get("eater").getUseItem().is(Items.GOLDEN_APPLE),
 						"is not eating");
-				expect(out, "guard", m.get("guard").isUsingItem() && m.get("guard").getUsedItemHand() == InteractionHand.OFF_HAND,
-						"is not raising the shield");
+				expect(out, "guard", m.get("guard").isUsingItem() && m.get("guard").getUsedItemHand() == InteractionHand.OFF_HAND
+						&& m.get("guard").getUseItem().is(Items.SHIELD), "is not raising the shield");
 				expect(out, "sleeper", m.get("sleeper").getPose() == Pose.SLEEPING, "is not sleeping");
 				return out;
 			});

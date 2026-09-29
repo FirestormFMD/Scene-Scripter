@@ -40,8 +40,10 @@ public final class ActorApplier {
 
 	/**
 	 * @param jump true when the playhead jumped (seek, loop, edit), so clients should snap rather than glide
+	 * @param settled whether clients have had the actor for long enough to know its equipment (see below)
+	 * @return true if an item use was held back and needs another apply on a later tick
 	 */
-	public static void apply(ServerLevel level, Entity entity, ObjectState state, boolean jump) {
+	public static boolean apply(ServerLevel level, Entity entity, ObjectState state, boolean jump, boolean settled) {
 		double x = state.position().x();
 		double y = state.position().y();
 		double z = state.position().z();
@@ -73,20 +75,34 @@ public final class ActorApplier {
 		}
 		entity.setCustomNameVisible(state.nameVisible() && name != null);
 
+		boolean deferred = false;
 		if (entity instanceof LivingEntity living) {
-			applyLiving(living, state);
+			deferred = applyLiving(level, living, state, settled);
 		}
 		io.github.firestormfmd.scenescripter.actor.Capabilities.apply(entity, state.extra());
+		return deferred;
 	}
 
-	private static void applyLiving(LivingEntity living, ObjectState state) {
+	private static boolean applyLiving(ServerLevel level, LivingEntity living, ObjectState state, boolean settled) {
+		String use = state.useItem();
+		EquipmentSlot usedSlot = use.equals("off") ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
+		boolean usedHandChanged = false;
+		java.util.List<com.mojang.datafixers.util.Pair<EquipmentSlot, ItemStack>> changed = new java.util.ArrayList<>();
 		for (Map.Entry<String, EquipmentSlot> slot : SLOTS.entrySet()) {
 			String wanted = state.equipment().getOrDefault(slot.getKey(), "");
 			ItemStack current = living.getItemBySlot(slot.getValue());
 			String currentId = current.isEmpty() ? "" : BuiltInRegistries.ITEM.getKey(current.getItem()).toString();
 			if (!wanted.equals(currentId)) {
-				living.setItemSlot(slot.getValue(), stack(wanted));
+				ItemStack stack = stack(wanted);
+				living.setItemSlot(slot.getValue(), stack);
+				changed.add(com.mojang.datafixers.util.Pair.of(slot.getValue(), stack.copy()));
+				usedHandChanged |= slot.getValue() == usedSlot;
 			}
+		}
+		// Vanilla sends equipment changes while an entity ticks, which actors never do, so they are sent here.
+		if (!changed.isEmpty()) {
+			level.getChunkSource().sendToTrackingPlayers(living,
+					new net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket(living.getId(), changed));
 		}
 
 		float health = state.dead() ? 0f : living.getMaxHealth();
@@ -94,12 +110,19 @@ public final class ActorApplier {
 			living.setHealth(health);
 		}
 
-		// Bow draws, eating and raised shields, from the use_item channel.
-		String use = state.useItem();
+		// Bow draws, eating and raised shields, from the use_item channel. A client picks up the used item when the
+		// use starts, so the use waits until the client has the item: until a new actor has been sent with its
+		// equipment, and for a tick after the item in that hand changes (stopping and starting again).
+		boolean deferred = false;
 		if (!use.isEmpty() && !state.dead()) {
 			net.minecraft.world.InteractionHand hand = use.equals("off")
 					? net.minecraft.world.InteractionHand.OFF_HAND : net.minecraft.world.InteractionHand.MAIN_HAND;
-			if (!living.isUsingItem() || living.getUsedItemHand() != hand) {
+			if (!settled || usedHandChanged) {
+				if (living.isUsingItem()) {
+					living.stopUsingItem();
+				}
+				deferred = true;
+			} else if (!living.isUsingItem() || living.getUsedItemHand() != hand) {
 				living.startUsingItem(hand);
 			}
 		} else if (living.isUsingItem()) {
@@ -110,6 +133,7 @@ public final class ActorApplier {
 		if (scale != null && scale.getBaseValue() != state.scale()) {
 			scale.setBaseValue(state.scale());
 		}
+		return deferred;
 	}
 
 	/** An item stack from an item ID such as {@code minecraft:iron_sword}; empty if unknown. */
