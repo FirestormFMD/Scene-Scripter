@@ -9,6 +9,9 @@ base {
 	archivesName = 'scene-scripter'
 }
 
+// One jar per Minecraft version, such as scene-scripter-1.0.0+26.3.jar.
+version = "${project.mod_version}+${project.minecraft_version}"
+
 loom {
 	splitEnvironmentSourceSets()
 

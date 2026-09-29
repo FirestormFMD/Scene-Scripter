@@ -6,7 +6,7 @@ This guide walks through a first scene, then covers each tool.
 
 ## Before you start
 
-- Minecraft 26.2 with Fabric Loader and Fabric API.
+- Minecraft 26.2 or 26.3 with Fabric Loader and Fabric API, and the Scene Scripter jar for that version.
 - Put Scene Scripter in your `mods` folder, next to Flashback or Replay Mod if you want to record.
 - Use a creative world where you have operator rights. Scene commands need permission level 2.
 
@@ -139,7 +139,7 @@ The first row of the outliner is the scene track. It holds:
 
 ## Recording
 
-Scene Scripter is tested beside Flashback 0.43.6 and Replay Mod 2.6.27 for Minecraft 26.2.
+Scene Scripter is tested beside Flashback 0.43.6 and Replay Mod 2.6.27 on Minecraft 26.2, and beside Flashback 0.43.6 on 26.3 (Replay Mod has no 26.3 build yet).
 
 1. Press **Bounds** once so the scene's chunks stay loaded while it plays.
 2. Start recording in Replay Mod (it records singleplayer by itself) or Flashback. With Flashback you can skip this: Record starts it for you.

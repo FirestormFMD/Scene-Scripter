@@ -1,5 +1,5 @@
-# Publishes a release when a version tag such as v1.0.0 is pushed: builds and tests the mod, attaches the jar to a
-# GitHub release, and uploads it to Modrinth. The Modrinth step runs only once the repository has a
+# Publishes a release when a version tag such as v1.0.0 is pushed: builds and tests the mod for each Minecraft version
+# it supports, attaches the jars to a GitHub release, and uploads them to Modrinth. The Modrinth step runs only once the repository has a
 # MODRINTH_TOKEN secret and a MODRINTH_PROJECT_ID variable (Settings > Secrets and variables > Actions).
 
 name: release
@@ -19,21 +19,24 @@ jobs:
         with:
           java-version: '25'
           distribution: 'microsoft'
-      - name: build and test
+      - name: build and test for 26.2
         run: |
           chmod +x ./gradlew
           ./gradlew build -Pmod_version="${GITHUB_REF_NAME#v}"
+      - name: build and test for 26.3
+        run: ./gradlew build -Pmod_version="${GITHUB_REF_NAME#v}" -Pminecraft_version=26.3 -Pfabric_api_version=0.161.0+26.3
       - name: release notes
         run: |
           version="${GITHUB_REF_NAME#v}"
           awk -v v="## $version" '$0 == v {found=1; next} found && /^## / {exit} found {print}' CHANGELOG.md > notes.md
           if [ ! -s notes.md ]; then echo "CHANGELOG.md has no section for $version"; exit 1; fi
-          echo "jar=fabric/build/libs/scene-scripter-$version.jar" >> "$GITHUB_ENV"
           echo "version=$version" >> "$GITHUB_ENV"
       - name: github release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" "$jar" --title "Scene Scripter $version" --notes-file notes.md
+        run: |
+          gh release create "$GITHUB_REF_NAME" "fabric/build/libs/scene-scripter-$version+26.2.jar" \
+            "fabric/build/libs/scene-scripter-$version+26.3.jar" --title "Scene Scripter $version" --notes-file notes.md
       - name: publish to modrinth
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
@@ -43,14 +46,18 @@ jobs:
             echo "No MODRINTH_TOKEN secret or MODRINTH_PROJECT_ID variable; skipping Modrinth"
             exit 0
           fi
-          jq -n --arg project "$MODRINTH_PROJECT_ID" --arg version "$version" --rawfile notes notes.md '{
-            project_id: $project, version_number: $version, name: ("Scene Scripter " + $version),
-            changelog: $notes, game_versions: ["26.2"], loaders: ["fabric"], version_type: "release",
-            featured: true, file_parts: ["file"],
-            dependencies: [{project_id: "P7dR8mSH", dependency_type: "required"}]
-          }' > data.json
-          curl -fsS -X POST https://api.modrinth.com/v2/version \
-            -H "Authorization: $MODRINTH_TOKEN" \
-            -H "User-Agent: FirestormFMD/Scene-Scripter release workflow" \
-            -F "data=<data.json;type=application/json" \
-            -F "file=@$jar;type=application/java-archive"
+          # One Modrinth version per Minecraft version, each with its own jar.
+          for mc in 26.2 26.3; do
+            jq -n --arg project "$MODRINTH_PROJECT_ID" --arg version "$version+$mc" --arg name "Scene Scripter $version for $mc" \
+              --arg mc "$mc" --rawfile notes notes.md '{
+              project_id: $project, version_number: $version, name: $name,
+              changelog: $notes, game_versions: [$mc], loaders: ["fabric"], version_type: "release",
+              featured: true, file_parts: ["file"],
+              dependencies: [{project_id: "P7dR8mSH", dependency_type: "required"}]
+            }' > data.json
+            curl -fsS -X POST https://api.modrinth.com/v2/version \
+              -H "Authorization: $MODRINTH_TOKEN" \
+              -H "User-Agent: FirestormFMD/Scene-Scripter release workflow" \
+              -F "data=<data.json;type=application/json" \
+              -F "file=@fabric/build/libs/scene-scripter-$version+$mc.jar;type=application/java-archive"
+          done

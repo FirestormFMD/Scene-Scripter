@@ -2,7 +2,8 @@
 
 ## 1.0.0
 
-The first release, for Minecraft 26.2 with Fabric. Scenes are recorded with Flashback or Replay Mod.
+The first release, for Minecraft 26.2 and 26.3 with Fabric (a jar for each). Scenes are recorded with Flashback or Replay Mod
+(Replay Mod on 26.2 only, until it supports 26.3).
 
 - **Editor:** Right Ctrl opens an editor over the world with an outliner, an inspector and a timeline with a curve
   editor. Place any vanilla mob, Mannequins as players, TNT and props; move and turn them with handles; key any

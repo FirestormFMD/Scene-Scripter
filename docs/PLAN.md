@@ -1,7 +1,7 @@
 # Scene Scripter: Project Plan
 
-> Status: Phases 0 to 6 implemented (see section 1b). The 26.3 port (waiting for Replay Mod) and publishing the prepared 1.0 release remain.
-> Target: Fabric, Minecraft 26.2, singleplayer first.
+> Status: Phases 0 to 6 implemented and ported to 26.3 (see section 1b). Publishing the prepared 1.0 release is the owner's step.
+> Target: Fabric, Minecraft 26.2 and 26.3, singleplayer first.
 
 Scene Scripter is an in-game animation tool for Minecraft cinematics. You stage mobs, players, TNT and other entities, then animate them on a timeline so they walk, jump, fight, explode and die on cue. It covers shots that would otherwise need hand animation in Blender or Maya, or dozens of real players acting in sync.
 
@@ -15,7 +15,7 @@ It is **not** a recorder or a camera tool. Scenes play back live in the world, a
 |---|---|---|
 | Mod loader | Fabric | Flashback and Axiom are Fabric-only, and Replay Mod's current builds are Fabric. |
 | Editor UI | Vanilla GUI: a full-screen `Screen` with an immediate-mode helper and fixed panels, and the in-world overlay drawn with vanilla gizmos. Replaces the earlier Dear ImGui plan. | Flashback and Axiom both bundle imgui-java, so our own copy risked version clashes (the Phase 0 ImGui spike). Vanilla GUI has no native libraries or shared state, runs next to both, and the overlay never reaches recordings. |
-| Minecraft version | 26.2 first. Port to 26.3 once Flashback and Replay Mod support it. | 26.2 is the newest version both recorders support today. |
+| Minecraft version | 26.2 first, then 26.3 from the same sources (a jar for each). | 26.2 is the newest version both recorders support. Flashback supports 26.3 too, so the 26.3 build is ready for it; Replay Mod has no 26.3 build yet. |
 | Multiplayer | Singleplayer first, with a client/server split from day one so dedicated servers and shared editing can be added later without a rewrite. | Keeps v1 focused without closing the door. |
 | Objects outside the editor | Objects stay visible when the editor is closed, frozen at the playhead's state. They have no collision and don't interact with anything that wasn't set up in the editor (see 5.4). | Chosen during planning. The scene stays on screen as set dressing but can't be disturbed. |
 | Added to scope | Performance capture (act a part out live and record it as keyframes). | Chosen during planning. |
@@ -23,7 +23,7 @@ It is **not** a recorder or a camera tool. Scenes play back live in the world, a
 
 ## 1b. Status
 
-What is built, how it is checked, and what is still open. Unit tests cover the core library (142 tests); 17 Fabric server game tests and three client game tests run on every push in CI, the client tests alone and beside Flashback and Replay Mod.
+What is built, how it is checked, and what is still open. Unit tests cover the core library (142 tests); 17 Fabric server game tests and three client game tests run on every push in CI, the client tests alone and beside Flashback and Replay Mod on 26.2, and everything again on 26.3 beside Flashback.
 
 | Phase | Built | Checked by |
 |---|---|---|
@@ -43,7 +43,7 @@ What is built, how it is checked, and what is still open. Unit tests cover the c
 - **Scrub overrides (5.7)** cover death tilt, hurt flash, arm swing and creeper swelling; walk-cycle phase and body-turn lag are left to vanilla.
 - **Skins from a local PNG** (5.5) work through a resource pack texture named in the inspector; bundling the PNG with the world as a server resource pack is left to the user.
 - **Item drops** are off by default (open question 2): blasts drop items with a scene rule, and deaths drop vanilla loot with a per-object switch.
-- **Port to 26.3** waits for Replay Mod: Flashback supports 26.3 since 0.43.4, but Replay Mod's newest build (2.6.27) is still for 26.2 only (checked on Modrinth through the inspect workflow).
+- **Port to 26.3: done.** The same sources build for 26.3 with `-Pminecraft_version=26.3 -Pfabric_api_version=0.161.0+26.3`; the few calls that changed live in `fabric/src/versions/<version>` (permanent invulnerability, swings with an animation, the `Enderman` rename, the day clock, swings reported as punches, the keyboard input type, and a scrubbed frame's arm swing). 26.3 moved input from GLFW to SDL, so the editor's keys use the `InputConstants` names both versions share. A CI job builds and tests on 26.3 and runs the client game tests there beside Flashback 0.43.6 for 26.3 (on Mesa's software Vulkan driver, since 26.3's OpenGL backend finds no GLX visual under xvfb): the editor, the Mannequin poses, and Record starting a Flashback recording that plays back with the scene's actors all pass. Replay Mod's newest build (2.6.27) is still for 26.2 only; when a 26.3 build appears, adding its Modrinth version ID to the recorder lists in `fabric/build.gradle` and `replay-check/build.gradle` brings its checks to 26.3.
 - **1.0 release on Modrinth** is prepared (version 1.0.0, changelog, icon, and a release workflow run by pushing the `v1.0.0` tag). Publishing needs a Modrinth project and its token as a repository secret, so it is the owner's step.
 - Everything under **Later** below.
 
@@ -488,6 +488,8 @@ tools/inspect/         the inspect-sources workflow's queries
 
 **Build:** the non-remapping `net.fabricmc.fabric-loom` Gradle plugin (26.x is unobfuscated, so the project uses Mojang's names directly without Yarn), Java 25, Gradle 9, Fabric API, and split `main`/`client` source sets plus a `gametest` source set. The `core` module is packaged inside the mod jar. The scene model and solver avoid Minecraft classes, which keeps them unit-testable and cheaper to port.
 
+**Versions:** `-Pminecraft_version` picks the game version (26.2 by default). Code that differs between versions lives in `fabric/src/versions/<version>/{main,client}/java` (`Compat`, `ClientCompat` and two mixins); everything else is shared. Each build is a jar named for its game version, such as `scene-scripter-1.0.0+26.3.jar`.
+
 **26.2 notes found while building:** day time is a world clock (`ServerClockManager` with the dimension's default clock) rather than a day-time setter; weather is set on the server with `setWeatherParameters`; the `forced` chunk ticket persists with the world, so scene bounds use a ticket type of their own that is never saved.
 
 ## 9. Roadmap
@@ -547,7 +549,7 @@ Each phase ends with something usable and has a concrete exit test.
 - Scene tracks (time, weather, sounds, commands), `/scene` commands, and Play for recording.
 - Crowd tools and the remaining capability descriptors.
 - Performance work to reach 200+ actors, import and export, docs, and a tutorial scene.
-- Port to 26.3 once the recorders support it.
+- Port to 26.3 (done; built and tested beside Flashback, and beside Replay Mod once it supports 26.3).
 - **Exit:** a 1.0 release on Modrinth.
 
 ### Later (after v1)
