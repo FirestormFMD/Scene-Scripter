@@ -63,6 +63,29 @@ final class EventTools {
 				EditActions.freshId(scene, "e"), tick, "mob_event", null, Map.of("event", id), null))));
 	}
 
+	/**
+	 * Moves the object to {@code to} in one tick: its position holds until the tick before, then jumps. Objects
+	 * that can show it get the vanilla teleport particles too.
+	 */
+	static void teleport(SceneObject o, int tick, io.github.firestormfmd.scenescripter.core.math.Vec3 to) {
+		Scene scene = ClientScene.scene().orElse(null);
+		var evaluator = ClientScene.evaluator().orElse(null);
+		if (scene == null || evaluator == null) {
+			return;
+		}
+		var from = evaluator.evaluate(o, Math.max(0, tick - 1)).position();
+		java.util.List<io.github.firestormfmd.scenescripter.core.edit.EditOp> ops = new java.util.ArrayList<>();
+		if (tick > 0) {
+			ops.add(new Edits.SetKeyframe(o.id(), BuiltInChannels.POSITION.name(), Keyframe.of(tick - 1, from, Interpolation.STEP)));
+		}
+		ops.add(new Edits.SetKeyframe(o.id(), BuiltInChannels.POSITION.name(), Keyframe.of(tick, to, Interpolation.STEP)));
+		if (io.github.firestormfmd.scenescripter.actor.MobEvents.find(o.entityType(), "teleport").isPresent()) {
+			ops.add(new Edits.AddEvent(o.id(), new SceneEvent(EditActions.freshId(scene, "e"), tick, "mob_event", null,
+					Map.of("event", "teleport"), null)));
+		}
+		ClientNet.edit(new Edits.Composite("Teleport", ops));
+	}
+
 	/** Adds a block event on the selected object for the block at {@code pos}. */
 	static void block(SceneObject o, String type, net.minecraft.core.BlockPos pos, String blockState, int tick) {
 		Scene scene = ClientScene.scene().orElse(null);

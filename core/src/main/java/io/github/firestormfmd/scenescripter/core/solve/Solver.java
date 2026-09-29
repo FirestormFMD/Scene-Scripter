@@ -110,6 +110,7 @@ public final class Solver {
 					case "hurt" -> scheduleIf(o, e, 1, () -> manualHurt(o, e, rulesFor(scene, o, e)));
 					case "shoot" -> scheduleIf(o, e, 1, () -> shoot(o, e));
 					case "ignite" -> scheduleIf(o, e, 2, () -> ignite(o, e));
+					case "defuse" -> scheduleIf(o, e, 2, () -> putGenerated(o.channel(BuiltInChannels.IGNITED), e.tick(), false, e.id()));
 					case "explode" -> scheduleIf(o, e, 3, () -> explode(o, e.id(), e, e.tick(), null));
 					default -> {
 					}
@@ -444,9 +445,12 @@ public final class Solver {
 		putGenerated(owner.channel(BuiltInChannels.IGNITED), event.tick(), true, event.id());
 		boolean manual = owner.events().stream()
 				.anyMatch(e -> e.type().equals("explode") && !e.isGenerated() && e.tick() >= event.tick());
-		if (!manual) {
-			int at = event.tick() + (event.params().get("fuse") instanceof Number n ? n.intValue()
-					: fuse(owner, Explosions.CREEPER_FUSE));
+		int at = event.tick() + (event.params().get("fuse") instanceof Number n ? n.intValue()
+				: fuse(owner, Explosions.CREEPER_FUSE));
+		// A defuse before the fuse runs out stops the swell, and the creeper doesn't go off.
+		boolean defused = owner.events().stream().anyMatch(e -> e.type().equals("defuse") && e.tick() > event.tick()
+				&& e.tick() < at && io.github.firestormfmd.scenescripter.core.scene.EventCondition.holds(e, owner, scene));
+		if (!manual && !defused) {
 			schedule(at, 3, () -> explode(owner, null, event, at, null));
 		}
 	}

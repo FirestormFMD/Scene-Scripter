@@ -24,6 +24,8 @@ import io.github.firestormfmd.scenescripter.core.scene.Scene;
  */
 public final class SceneStorage {
 	private static final int BACKUPS = 5;
+	/** Scenes bigger than this many characters of JSON are saved gzipped. */
+	private static final int GZIP_ABOVE = 1 << 20;
 
 	private final Path root;
 
@@ -48,8 +50,14 @@ public final class SceneStorage {
 		return Optional.of(clean);
 	}
 
+	/** The scene's file: {@code <name>.json}, or {@code <name>.json.gz} for a scene too big to keep as plain text. */
 	private Path file(String name) {
-		return root.resolve("scenes").resolve(name + ".json");
+		Path gz = root.resolve("scenes").resolve(name + ".json.gz");
+		return Files.exists(gz) ? gz : root.resolve("scenes").resolve(name + ".json");
+	}
+
+	private static boolean gzipped(Path f) {
+		return f.getFileName().toString().endsWith(".gz");
 	}
 
 	public List<String> list() {
@@ -58,10 +66,13 @@ public final class SceneStorage {
 		if (!Files.isDirectory(dir)) {
 			return names;
 		}
-		try (DirectoryStream<Path> files = Files.newDirectoryStream(dir, "*.json")) {
+		try (DirectoryStream<Path> files = Files.newDirectoryStream(dir, "*.{json,json.gz}")) {
 			for (Path f : files) {
 				String n = f.getFileName().toString();
-				names.add(n.substring(0, n.length() - ".json".length()));
+				String name = n.substring(0, n.length() - (gzipped(f) ? ".json.gz" : ".json").length());
+				if (!names.contains(name)) {
+					names.add(name);
+				}
 			}
 		} catch (IOException e) {
 			return names;
@@ -75,7 +86,13 @@ public final class SceneStorage {
 	}
 
 	public Scene load(String name) throws IOException, SceneFormatException {
-		return SceneCodec.read(Files.readString(file(name), StandardCharsets.UTF_8));
+		Path f = file(name);
+		if (!gzipped(f)) {
+			return SceneCodec.read(Files.readString(f, StandardCharsets.UTF_8));
+		}
+		try (var in = new java.util.zip.GZIPInputStream(Files.newInputStream(f))) {
+			return SceneCodec.read(new String(in.readAllBytes(), StandardCharsets.UTF_8));
+		}
 	}
 
 	public void save(String name, Scene scene) throws IOException {
@@ -84,13 +101,25 @@ public final class SceneStorage {
 		if (Files.exists(f)) {
 			rotateBackups(name);
 		}
+		String json = SceneCodec.write(scene);
+		// Big scenes (large crowds, raw capture keys) are gzipped; the other form is removed so only one is read.
+		boolean big = json.length() > GZIP_ABOVE;
+		Path target = f.resolveSibling(name + (big ? ".json.gz" : ".json"));
 		Path tmp = f.resolveSibling(name + ".json.tmp");
-		Files.writeString(tmp, SceneCodec.write(scene), StandardCharsets.UTF_8);
-		Files.move(tmp, f, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+		if (big) {
+			try (var out = new java.util.zip.GZIPOutputStream(Files.newOutputStream(tmp))) {
+				out.write(json.getBytes(StandardCharsets.UTF_8));
+			}
+		} else {
+			Files.writeString(tmp, json, StandardCharsets.UTF_8);
+		}
+		Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+		Files.deleteIfExists(f.resolveSibling(name + (big ? ".json" : ".json.gz")));
 	}
 
 	public void delete(String name) throws IOException {
-		Files.deleteIfExists(file(name));
+		Files.deleteIfExists(root.resolve("scenes").resolve(name + ".json"));
+		Files.deleteIfExists(root.resolve("scenes").resolve(name + ".json.gz"));
 		Files.deleteIfExists(takesFile(name));
 	}
 
@@ -154,11 +183,17 @@ public final class SceneStorage {
 		Path dir = root.resolve("backups");
 		Files.createDirectories(dir);
 		for (int i = BACKUPS - 1; i >= 1; i--) {
-			Path from = dir.resolve(name + "." + i + ".json");
-			if (Files.exists(from)) {
-				Files.move(from, dir.resolve(name + "." + (i + 1) + ".json"), StandardCopyOption.REPLACE_EXISTING);
+			for (String ext : new String[] {".json", ".json.gz"}) {
+				Path from = dir.resolve(name + "." + i + ext);
+				if (Files.exists(from)) {
+					Files.deleteIfExists(dir.resolve(name + "." + (i + 1) + (ext.equals(".json") ? ".json.gz" : ".json")));
+					Files.move(from, dir.resolve(name + "." + (i + 1) + ext), StandardCopyOption.REPLACE_EXISTING);
+				}
 			}
 		}
-		Files.copy(file(name), dir.resolve(name + ".1.json"), StandardCopyOption.REPLACE_EXISTING);
+		Path current = file(name);
+		String ext = gzipped(current) ? ".json.gz" : ".json";
+		Files.deleteIfExists(dir.resolve(name + ".1" + (gzipped(current) ? ".json" : ".json.gz")));
+		Files.copy(current, dir.resolve(name + ".1" + ext), StandardCopyOption.REPLACE_EXISTING);
 	}
 }

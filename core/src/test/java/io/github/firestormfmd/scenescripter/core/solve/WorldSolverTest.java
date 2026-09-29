@@ -115,6 +115,18 @@ class WorldSolverTest {
 	}
 
 	@Test
+	void defusedCreepersDontExplode() {
+		SceneObject creeper = object("c", "minecraft:creeper", new Vec3(0.5, 1, 0.5));
+		creeper.addEvent(new SceneEvent("hiss", 40, "ignite", null, Map.of(), null));
+		creeper.addEvent(new SceneEvent("calm", 55, "defuse", null, Map.of(), null));
+		Solver.Solution s = solver.solve(scene, eval, world);
+		assertTrue(s.explosions().isEmpty());
+		assertTrue((Boolean) creeper.channel(BuiltInChannels.IGNITED).valueAt(50));
+		assertFalse((Boolean) creeper.channel(BuiltInChannels.IGNITED).valueAt(56));
+		assertTrue(eval.evaluate(creeper, 80).exists());
+	}
+
+	@Test
 	void arrowsFlyToTheirTargetAndHurtIt() {
 		SceneObject archer = object("a", "minecraft:skeleton", new Vec3(0.5, 1, -8.5));
 		SceneObject zombie = object("z", "minecraft:zombie", new Vec3(0.5, 1, 8.5));

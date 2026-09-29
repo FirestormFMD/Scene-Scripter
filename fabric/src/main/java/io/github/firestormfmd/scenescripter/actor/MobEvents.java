@@ -54,6 +54,8 @@ public final class MobEvents {
 	}
 
 	public static Optional<MobEvent> find(String entityType, String id) {
-		return ALL.stream().filter(e -> e.id().equals(id) && e.types().contains(entityType)).findFirst();
+		// "*" in an entry's types lets every mob play it without offering it as a button for each.
+		return ALL.stream().filter(e -> e.id().equals(id) && (e.types().contains(entityType) || e.types().contains("*")))
+				.findFirst();
 	}
 }

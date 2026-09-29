@@ -445,6 +445,26 @@ final class Inspector {
 			}
 		}
 		rowY += 13;
+		if (visible()) {
+			Ui ui = screen.ui();
+			int bw = (w - 18) / 4;
+			if (o.entityType().equals("minecraft:creeper")) {
+				ui.button(x + 6, rowY, bw, 11, "defuse", false, () -> EventTools.add(o, "defuse", tick));
+			}
+			int teleportY = rowY;
+			Vec3 here = currentPosition(o);
+			ui.button(x + 6 + bw + 2, rowY, bw * 2 + 2, 11, "teleport to...", false, () -> editAt(teleportY,
+					String.format(Locale.ROOT, "%.1f %.1f %.1f", here.x(), here.y(), here.z()), v -> {
+						String[] c = v.trim().split("\\s+");
+						try {
+							EventTools.teleport(o, tick, new Vec3(Double.parseDouble(c[0]), Double.parseDouble(c[1]),
+									Double.parseDouble(c[2])));
+						} catch (RuntimeException ex) {
+							screen.status("Three numbers: x y z");
+						}
+					}));
+		}
+		rowY += 13;
 		var mobEvents = io.github.firestormfmd.scenescripter.actor.MobEvents.forType(o.entityType());
 		for (int start = 0; start < mobEvents.size(); start += 3) {
 			if (visible()) {
