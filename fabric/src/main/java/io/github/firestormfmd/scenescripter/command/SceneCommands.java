@@ -102,6 +102,32 @@ public final class SceneCommands {
 					Path out = SceneManager.get().orElseThrow().storage().export(s.name(), s.scene());
 					return "Exported to " + out;
 				})))
+				.then(literal("capture")
+						.then(literal("stop").executes(ctx -> run(ctx, m -> {
+							m.stopCapture(player(ctx));
+							return "Capture stopped";
+						})))
+						.then(argument("object", StringArgumentType.word())
+								.executes(ctx -> capture(ctx, 60, false))
+								.then(argument("preroll", IntegerArgumentType.integer(0, 20 * 60))
+										.executes(ctx -> capture(ctx, IntegerArgumentType.getInteger(ctx, "preroll"), false))
+										.then(literal("loop").executes(ctx ->
+												capture(ctx, IntegerArgumentType.getInteger(ctx, "preroll"), true))))))
+				.then(literal("takes").executes(ctx -> withSession(ctx, s -> s.takes().isEmpty() ? "No takes yet"
+						: "Takes: " + String.join(", ", s.takes().stream().map(t -> t.id() + " (" + t.objectId() + ", ticks "
+								+ t.startTick() + "-" + t.endTick() + ")").toList()))))
+				.then(literal("take")
+						.then(argument("id", StringArgumentType.word())
+								.then(argument("mode", StringArgumentType.word())
+										.suggests((c, b) -> SharedSuggestionProvider.suggest(java.util.List.of("keys", "raw", "path"), b))
+										.executes(ctx -> run(ctx, m -> {
+											String mode = StringArgumentType.getString(ctx, "mode");
+											if (!java.util.List.of("keys", "raw", "path").contains(mode)) {
+												throw new IOException("Use keys, raw or path");
+											}
+											m.useTake(StringArgumentType.getString(ctx, "id"), mode);
+											return "Applied " + StringArgumentType.getString(ctx, "id") + " as " + mode;
+										})))))
 				.then(literal("apply")
 						.executes(ctx -> withSession(ctx, s -> "This keeps the scene's block changes up to tick "
 								+ s.clock().tick() + " in the world for good. Run /scene apply confirm to do it."))
@@ -154,6 +180,24 @@ public final class SceneCommands {
 			Scene scene = m.create(StringArgumentType.getString(ctx, "name"), ticks, level,
 					net.minecraft.core.BlockPos.containing(ctx.getSource().getPosition()));
 			return "Created scene " + scene.name() + " (" + ticks + " ticks)";
+		});
+	}
+
+	private static net.minecraft.server.level.ServerPlayer player(CommandContext<CommandSourceStack> ctx) throws IOException {
+		net.minecraft.server.level.ServerPlayer p = ctx.getSource().getPlayer();
+		if (p == null) {
+			throw new IOException("Only a player can do that");
+		}
+		return p;
+	}
+
+	/** Starts performing an object from the playhead, after a pre-roll of the scene. */
+	private static int capture(CommandContext<CommandSourceStack> ctx, int preroll, boolean loop) {
+		return run(ctx, m -> {
+			SceneSession s = m.session().orElseThrow(() -> new IOException("No scene is open"));
+			m.startCapture(player(ctx), StringArgumentType.getString(ctx, "object"),
+					s.clock().tick(), -1, preroll, loop);
+			return "Capturing after a " + preroll / 20.0 + "s pre-roll; press Right Ctrl or run /scene capture stop to finish";
 		});
 	}
 

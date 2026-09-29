@@ -13,6 +13,7 @@
 		"PickableOverridesMixin",
 		"ProjectileHitMixin",
 		"PushableOverridesMixin",
+		"ServerGamePacketListenerImplMixin",
 		"ServerLevelMixin"
 	],
 	"injectors": {

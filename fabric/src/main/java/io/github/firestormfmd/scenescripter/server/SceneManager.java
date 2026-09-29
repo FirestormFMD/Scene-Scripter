@@ -50,6 +50,7 @@ public final class SceneManager {
 	private SceneSession session;
 	private final Set<UUID> editors = new HashSet<>();
 	private final Map<UUID, Chunks.Assembler> incomingEdits = new HashMap<>();
+	private final Map<UUID, CaptureSession> captures = new HashMap<>();
 	private long sentRevision = -1;
 	private int ticksSinceSave;
 
@@ -133,6 +134,7 @@ public final class SceneManager {
 		close();
 		String dimension = level.dimension().identifier().toString();
 		session = new SceneSession(name, scene, level, new JournalFile(storage.journalFile(), dimension));
+		session.loadTakes(storage.loadTakes(name));
 		sentRevision = -1;
 		ticksSinceSave = 0;
 		broadcastScene();
@@ -143,6 +145,7 @@ public final class SceneManager {
 			throw new IOException("No scene is open");
 		}
 		storage.save(session.name(), session.scene());
+		storage.saveTakes(session.name(), session.takes());
 		session.markSaved();
 		broadcastState();
 	}
@@ -161,6 +164,9 @@ public final class SceneManager {
 	public void close() {
 		if (session == null) {
 			return;
+		}
+		for (CaptureSession c : List.copyOf(captures.values())) {
+			endCapture(c, true);
 		}
 		saveQuietly();
 		session.close();
@@ -186,6 +192,15 @@ public final class SceneManager {
 			return;
 		}
 		session.tick();
+		tickCaptures();
+		if (session.consumeTakesChanged()) {
+			try {
+				storage.saveTakes(session.name(), session.takes());
+			} catch (IOException e) {
+				SceneScripter.LOGGER.error("Could not save takes of scene {}", session.name(), e);
+			}
+			sentRevision = -1;
+		}
 		if (session.history().revision() != sentRevision) {
 			broadcastScene();
 		}
@@ -286,6 +301,176 @@ public final class SceneManager {
 		sendList(player);
 	}
 
+	// ---- Performance capture ----
+
+	public boolean isCapturing(ServerPlayer player) {
+		return captures.containsKey(player.getUUID());
+	}
+
+	/**
+	 * Starts a player performing an object: the scene rewinds to the pre-roll, the player is placed where the
+	 * object is at the punch-in and made invulnerable, and recording starts at the punch-in.
+	 *
+	 * @param punchOut last tick to record, or -1 for the end of the scene
+	 */
+	public void startCapture(ServerPlayer player, String objectId, int punchIn, int punchOut, int preroll, boolean loop)
+			throws IOException {
+		if (session == null) {
+			throw new IOException("No scene is open");
+		}
+		var object = session.scene().object(objectId).orElseThrow(() -> new IOException("No object " + objectId));
+		if (isCapturing(player)) {
+			throw new IOException("Already capturing; press Right Ctrl to stop first");
+		}
+		int in = Math.clamp(punchIn, 0, session.scene().length() - 1);
+		int out = punchOut < 0 ? -1 : Math.clamp(punchOut, in + 1, session.scene().length());
+		CaptureSession c = new CaptureSession(player, object.id(), in, out, Math.max(0, preroll), loop);
+		captures.put(player.getUUID(), c);
+		player.setInvulnerable(true);
+		beginPass(c);
+		ServerPlayNetworking.send(player, new Payloads.CaptureState(true, object.id()));
+	}
+
+	/** Rewinds to the pre-roll and puts the performer where the object is at the punch-in. */
+	private void beginPass(CaptureSession c) {
+		session.pause();
+		session.setSpeed(1);
+		session.seek(c.startTick());
+		session.scene().object(c.objectId).ifPresent(o -> {
+			var st = session.evaluator().evaluate(o, c.punchIn);
+			c.player.connection.teleport(st.position().x(), st.position().y(), st.position().z(), st.bodyYaw(), st.headPitch());
+		});
+		updateHidden();
+		session.play();
+	}
+
+	/** Ends a capture, keeping what was recorded so far as a take. */
+	public void stopCapture(ServerPlayer player) {
+		CaptureSession c = captures.get(player.getUUID());
+		if (c != null) {
+			endCapture(c, true);
+		}
+	}
+
+	private void endCapture(CaptureSession c, boolean keep) {
+		if (keep && session != null && c.hasSamples()) {
+			finishPass(c);
+		}
+		captures.remove(c.player.getUUID());
+		c.release();
+		if (session != null) {
+			session.pause();
+			updateHidden();
+		}
+		if (ServerPlayNetworking.canSend(c.player, Payloads.CaptureState.TYPE)) {
+			ServerPlayNetworking.send(c.player, new Payloads.CaptureState(false, ""));
+		}
+	}
+
+	private void tickCaptures() {
+		for (CaptureSession c : List.copyOf(captures.values())) {
+			if (c.player.isRemoved()) {
+				endCapture(c, true);
+				continue;
+			}
+			int tick = session.clock().tick();
+			c.tick(tick);
+			boolean done = c.recording(tick) && ((c.punchOut >= 0 && tick >= c.punchOut) || !session.clock().isPlaying()
+					|| tick >= session.scene().length());
+			if (!done) {
+				continue;
+			}
+			if (c.loop) {
+				if (c.hasSamples()) {
+					finishPass(c);
+				}
+				beginPass(c);
+			} else {
+				endCapture(c, true);
+			}
+		}
+	}
+
+	/**
+	 * Stores the pass as a take and applies it: to the performed object on the first pass, and to a new object on
+	 * every later loop pass, so one person can build a crowd.
+	 */
+	private void finishPass(CaptureSession c) {
+		var scene = session.scene();
+		var source = scene.object(c.objectId).orElse(null);
+		if (source == null) {
+			return;
+		}
+		String takeId = scene.newId("take");
+		var take = c.finishPass(takeId, "Take " + (session.takes().size() + 1));
+		String target = c.objectId;
+		if (c.passes() > 1) {
+			var extra = new io.github.firestormfmd.scenescripter.core.scene.SceneObject(scene.newId("o"),
+					source.name() + " " + c.passes(), source.entityType());
+			extra.appearance().putAll(source.appearance());
+			extra.setLifetime(source.spawnTick(), source.despawnTick());
+			extra.setGroup(source.group());
+			for (var slot : List.of(io.github.firestormfmd.scenescripter.core.scene.BuiltInChannels.MAINHAND,
+					io.github.firestormfmd.scenescripter.core.scene.BuiltInChannels.OFFHAND,
+					io.github.firestormfmd.scenescripter.core.scene.BuiltInChannels.HEAD,
+					io.github.firestormfmd.scenescripter.core.scene.BuiltInChannels.CHEST,
+					io.github.firestormfmd.scenescripter.core.scene.BuiltInChannels.LEGS,
+					io.github.firestormfmd.scenescripter.core.scene.BuiltInChannels.FEET)) {
+				source.channel(slot.name()).ifPresent(ch -> extra.channel(slot).setDefaultValue((String) ch.defaultValue()));
+			}
+			session.perform(new io.github.firestormfmd.scenescripter.core.edit.Edits.AddObject(extra, scene.objects().size()));
+			target = extra.id();
+			take = new io.github.firestormfmd.scenescripter.core.capture.Take(take.id(), target, take.name(), take.recordedAt(),
+					take.samples(), take.events());
+		}
+		session.addTake(take);
+		session.applyTake(take, target, "keys");
+		c.player.sendSystemMessage(Component.literal(take.name() + " recorded for " + scene.object(target).map(
+				io.github.firestormfmd.scenescripter.core.scene.SceneObject::name).orElse(target)
+				+ " (" + take.samples().size() + " ticks)"));
+	}
+
+	private void updateHidden() {
+		Set<String> hidden = new HashSet<>();
+		for (CaptureSession c : captures.values()) {
+			if (c.passes() == 0) {
+				hidden.add(c.objectId);
+			}
+		}
+		session.actors().setHidden(hidden);
+	}
+
+	/** Records something a performer did, such as a swing, an attack or a block interaction. */
+	public void onCaptureEvent(ServerPlayer player, String type, String target, Map<String, Object> params) {
+		CaptureSession c = captures.get(player.getUUID());
+		if (c != null && session != null) {
+			c.event(session.clock().tick(), type, target, params);
+		}
+	}
+
+	/** Applies a stored take to its object as {@code keys}, {@code raw} keys or a {@code path}. */
+	public void useTake(String takeId, String mode) throws IOException {
+		if (session == null) {
+			throw new IOException("No scene is open");
+		}
+		var take = session.take(takeId).orElseThrow(() -> new IOException("No take " + takeId));
+		session.applyTake(take, take.objectId(), mode);
+	}
+
+	public void onCapture(ServerPlayer player, Payloads.Capture c) {
+		try {
+			switch (c.action()) {
+				case Payloads.Capture.START -> startCapture(player, c.objectId(), c.punchIn(), c.punchOut(), c.preroll(), c.loop());
+				case Payloads.Capture.STOP -> stopCapture(player);
+				case Payloads.Capture.USE_TAKE -> useTake(c.takeId(), c.mode());
+				default -> {
+				}
+			}
+		} catch (IOException | RuntimeException e) {
+			error(player, e.getMessage() == null ? e.toString() : e.getMessage());
+		}
+	}
+
 	private static void error(ServerPlayer player, String message) {
 		player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.RED));
 	}
@@ -345,6 +530,17 @@ public final class SceneManager {
 				blasts.add(eo);
 			}
 			o.add("explosions", blasts);
+			com.google.gson.JsonArray takes = new com.google.gson.JsonArray();
+			for (var t : session.takes()) {
+				JsonObject to = new JsonObject();
+				to.addProperty("id", t.id());
+				to.addProperty("object", t.objectId());
+				to.addProperty("name", t.name());
+				to.addProperty("start", t.startTick());
+				to.addProperty("end", t.endTick());
+				takes.add(to);
+			}
+			o.add("takes", takes);
 		}
 		return o.toString();
 	}
@@ -415,6 +611,10 @@ public final class SceneManager {
 	public void onLeave(ServerPlayer player) {
 		editors.remove(player.getUUID());
 		incomingEdits.remove(player.getUUID());
+		CaptureSession c = captures.get(player.getUUID());
+		if (c != null) {
+			endCapture(c, true);
+		}
 	}
 
 	/** The level new scenes open in when started from the console. */

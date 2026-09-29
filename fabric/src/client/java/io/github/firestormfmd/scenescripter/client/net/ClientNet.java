@@ -63,4 +63,18 @@ public final class ClientNet {
 	public static void sceneCommand(int action, String name, int length) {
 		ClientPlayNetworking.send(new Payloads.SceneCommand(action, name, length));
 	}
+
+	/** Starts performing an object. {@code punchOut} is -1 to record to the end of the scene. */
+	public static void startCapture(String objectId, int punchIn, int punchOut, int preroll, boolean loop) {
+		ClientPlayNetworking.send(new Payloads.Capture(Payloads.Capture.START, objectId, punchIn, punchOut, preroll, loop, "", ""));
+	}
+
+	public static void stopCapture() {
+		ClientPlayNetworking.send(new Payloads.Capture(Payloads.Capture.STOP, "", 0, -1, 0, false, "", ""));
+	}
+
+	/** Applies a take: {@code keys}, {@code raw} or {@code path}. */
+	public static void useTake(String takeId, String mode) {
+		ClientPlayNetworking.send(new Payloads.Capture(Payloads.Capture.USE_TAKE, "", 0, -1, 0, false, takeId, mode));
+	}
 }

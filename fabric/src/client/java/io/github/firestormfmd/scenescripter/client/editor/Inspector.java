@@ -205,6 +205,45 @@ final class Inspector {
 			label("Draw a path to make this walk.");
 		}
 
+		heading("Performance capture");
+		var st = ClientScene.state();
+		boolean ranged = st.loopStart() >= 0 && st.loopEnd() > st.loopStart();
+		int punchIn = ranged ? st.loopStart() : tick;
+		int punchOut = ranged ? st.loopEnd() : -1;
+		int prerollY = rowY;
+		row("Pre-roll", EditorState.capturePreroll / 20.0 + "s", false, () -> editAt(prerollY,
+				Double.toString(EditorState.capturePreroll / 20.0), v -> {
+					try {
+						EditorState.capturePreroll = (int) Math.round(Math.max(0, Double.parseDouble(v.trim())) * 20);
+					} catch (NumberFormatException e) {
+						screen.status("Pre-roll is a number of seconds");
+					}
+				}), null);
+		label(ranged ? "Records the loop range " + punchIn + "-" + punchOut : "Records from tick " + punchIn + " to the end");
+		if (visible()) {
+			Ui ui = screen.ui();
+			int bw = (w - 15) / 2;
+			ui.button(x + 6, rowY, bw, 11, "Capture", false, () ->
+					ClientNet.startCapture(o.id(), punchIn, punchOut, EditorState.capturePreroll, false));
+			ui.button(x + 9 + bw, rowY, bw, 11, "Loop capture", false, () ->
+					ClientNet.startCapture(o.id(), punchIn, punchOut, EditorState.capturePreroll, true));
+		}
+		rowY += 14;
+		for (var take : ClientScene.takes()) {
+			if (!take.objectId().equals(o.id())) {
+				continue;
+			}
+			if (visible()) {
+				Ui ui = screen.ui();
+				ui.text(ui.fit(take.name() + " " + take.start() + "-" + take.end(), w - 110), x + 6, rowY + 2, Ui.TEXT_DIM);
+				int bx = x + w - 102;
+				ui.button(bx, rowY, 30, 11, "keys", false, () -> ClientNet.useTake(take.id(), "keys"));
+				ui.button(bx + 32, rowY, 30, 11, "raw", false, () -> ClientNet.useTake(take.id(), "raw"));
+				ui.button(bx + 64, rowY, 32, 11, "path", false, () -> ClientNet.useTake(take.id(), "path"));
+			}
+			rowY += Ui.ROW_HEIGHT + 1;
+		}
+
 		if (o.entityType().equals("minecraft:tnt") || o.entityType().equals("minecraft:creeper")
 				|| o.entityType().equals("minecraft:end_crystal") || o.entityType().equals("minecraft:fireball")) {
 			heading("Explosion");

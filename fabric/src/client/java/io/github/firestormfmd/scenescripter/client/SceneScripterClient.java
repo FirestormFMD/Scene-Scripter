@@ -31,7 +31,12 @@ public class SceneScripterClient implements ClientModInitializer {
 				return;
 			}
 			while (TOGGLE_EDITOR.consumeClick()) {
-				EditorMode.toggle(client);
+				if (ClientScene.capturing()) {
+					// While performing, the editor key ends the take instead.
+					io.github.firestormfmd.scenescripter.client.net.ClientNet.stopCapture();
+				} else {
+					EditorMode.toggle(client);
+				}
 			}
 		});
 
@@ -43,6 +48,12 @@ public class SceneScripterClient implements ClientModInitializer {
 				ClientScene.onActorIds(payload));
 		ClientPlayNetworking.registerGlobalReceiver(Payloads.SceneList.TYPE, (payload, context) ->
 				ClientScene.onSceneList(payload));
+		ClientPlayNetworking.registerGlobalReceiver(Payloads.CaptureState.TYPE, (payload, context) -> {
+			ClientScene.onCaptureState(payload);
+			if (payload.active()) {
+				EditorMode.close();
+			}
+		});
 
 		ClientEntityEvents.ENTITY_LOAD.register((entity, level) -> ClientScene.onEntityLoad(entity));
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {

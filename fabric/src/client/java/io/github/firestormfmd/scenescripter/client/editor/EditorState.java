@@ -28,6 +28,8 @@ public final class EditorState {
 	public static @Nullable String hoveredObject;
 	public static Tool tool = Tool.SELECT;
 	public static BlockAction blockAction = BlockAction.BREAK;
+	/** Ticks the scene plays before a capture starts recording. */
+	public static int capturePreroll = 60;
 	/** Block state the block tool places, in command syntax. */
 	public static String blockState = "minecraft:stone";
 	/** Entity type placed by the place tool. */

@@ -35,6 +35,12 @@ public final class ClientScene {
 	private static List<String> sceneList = List.of();
 	private static List<AttackLine> attacks = List.of();
 	private static List<Blast> explosions = List.of();
+	private static List<TakeInfo> takes = List.of();
+	private static boolean capturing;
+
+	/** A recorded take of an object, as listed in the inspector. */
+	public record TakeInfo(String id, String objectId, String name, int start, int end) {
+	}
 
 	/**
 	 * An explosion the scene sets off, for previewing what it will break.
@@ -81,6 +87,19 @@ public final class ClientScene {
 
 	public static List<Blast> explosions() {
 		return explosions;
+	}
+
+	public static List<TakeInfo> takes() {
+		return takes;
+	}
+
+	/** Whether this player is performing an object right now. */
+	public static boolean capturing() {
+		return capturing;
+	}
+
+	public static void onCaptureState(Payloads.CaptureState s) {
+		capturing = s.active();
 	}
 
 	public static List<String> sceneList() {
@@ -141,6 +160,15 @@ public final class ClientScene {
 					}
 				}
 				explosions = List.copyOf(blasts);
+				java.util.List<TakeInfo> takeList = new java.util.ArrayList<>();
+				if (o.has("takes")) {
+					for (var el : o.getAsJsonArray("takes")) {
+						JsonObject t = el.getAsJsonObject();
+						takeList.add(new TakeInfo(t.get("id").getAsString(), t.get("object").getAsString(),
+								t.get("name").getAsString(), t.get("start").getAsInt(), t.get("end").getAsInt()));
+					}
+				}
+				takes = List.copyOf(takeList);
 				try {
 					scene = SceneCodec.fromJson(o.getAsJsonObject("scene"));
 					name = o.get("name").getAsString();
@@ -196,6 +224,8 @@ public final class ClientScene {
 	}
 
 	public static void reset() {
+		capturing = false;
+		takes = List.of();
 		name = null;
 		scene = null;
 		version++;
