@@ -106,13 +106,28 @@ public class ReplayWithoutSceneScripter implements FabricClientGameTest {
 		if (chosen == null) {
 			return out + ", none to press";
 		}
-		Method click = method(chosen.getClass(), "onClick");
 		try {
-			click.invoke(chosen);
-		} catch (ReflectiveOperationException e) {
+			Method click = method(chosen.getClass(), "onClick");
+			if (click != null) {
+				click.invoke(chosen);
+				return out + ", pressed \"" + text(chosen) + "\"";
+			}
+			// Replay Mod's buttons keep what a click does as a Runnable.
+			for (Class<?> c = chosen.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+				for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+					if (Runnable.class.isAssignableFrom(f.getType()) && !java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
+						f.setAccessible(true);
+						if (f.get(chosen) instanceof Runnable action) {
+							action.run();
+							return out + ", pressed \"" + text(chosen) + "\" (" + f.getName() + ")";
+						}
+					}
+				}
+			}
+			return out + ", found no way to press \"" + text(chosen) + "\"";
+		} catch (ReflectiveOperationException | RuntimeException e) {
 			return out + ", pressing \"" + text(chosen) + "\" failed: " + e;
 		}
-		return out + ", pressed \"" + text(chosen) + "\"";
 	}
 
 	private static void walk(Object o, int depth, java.util.Set<Object> seen, List<Object> clickables, List<String> texts) {
@@ -152,7 +167,7 @@ public class ReplayWithoutSceneScripter implements FabricClientGameTest {
 		if (!type.getName().startsWith("com.replaymod")) {
 			return;
 		}
-		if (method(type, "onClick") != null) {
+		if (method(type, "onClick") != null || method(type, "getLabel") != null) {
 			clickables.add(o);
 		} else if (method(type, "getText") != null) {
 			String t = text(o);
