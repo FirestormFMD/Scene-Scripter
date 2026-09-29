@@ -1,3 +1,10 @@
-# batch 11
-grep world/entity/monster/Creeper.java EntityDataAccessor
-grep world/entity/EntityEvent.java public static final byte
+# batch 12
+find EnderMan.java
+find Wolf.java
+find AbstractHorse.java
+find Villager.java
+find AbstractVillager.java
+find VillagerData.java
+find NeutralMob.java
+grep world/entity/monster/EnderMan.java (DATA_CREEPY|DATA_STARED_AT|public .*(Creepy|StaredAt)\()
+grep world/entity/Pose.java [A-Z_]+\(
