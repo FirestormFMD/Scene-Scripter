@@ -49,6 +49,7 @@ public final class EditorMode {
 		open = false;
 		EditorState.pathDraft.clear();
 		EditorState.dragPreview = null;
+		Gizmo.cancel();
 		if (ClientNet.available()) {
 			ClientNet.editorState(false);
 		}

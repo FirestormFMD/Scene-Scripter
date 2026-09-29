@@ -41,10 +41,12 @@ final class Viewport {
 			return;
 		}
 		if (screen.inViewport(lastMouseX, lastMouseY)) {
-			EditorState.hoveredObject = Picking.pickActor(Picking.ray(lastMouseX, lastMouseY, screen.width, screen.height))
-					.orElse(null);
+			Picking.Ray ray = Picking.ray(lastMouseX, lastMouseY, screen.width, screen.height);
+			EditorState.hoveredObject = Picking.pickActor(ray).orElse(null);
+			Gizmo.hovered = Gizmo.dragging != Gizmo.NONE ? Gizmo.dragging : Gizmo.pick(ray);
 		} else {
 			EditorState.hoveredObject = null;
+			Gizmo.hovered = Gizmo.NONE;
 		}
 	}
 
@@ -53,7 +55,7 @@ final class Viewport {
 		lastMouseX = ui.mouseX();
 		lastMouseY = ui.mouseY();
 		String hint = switch (EditorState.tool) {
-			case SELECT -> (EditorState.selectedObject != null ? "Drag the actor to move it; I keys its position" : "Click an actor to select it")
+			case SELECT -> (EditorState.selectedObject != null ? "Drag the arrows to move, the ring to turn, or the actor itself; I keys its position" : "Click an actor to select it")
 					+ (EditorState.snap == EditorState.Snap.OFF ? "  (G: snap)" : "  (snap: " + EditorState.snap.name().toLowerCase(java.util.Locale.ROOT) + ")");
 			case PLACE -> "Click the ground to place: " + EditActions.prettyName(EditorState.placeType);
 			case PATH -> (EditorState.pathDraftAir ? "Air path" : "Ground path") + ": " + EditorState.pathDraft.size()
@@ -87,6 +89,11 @@ final class Viewport {
 		Picking.Ray ray = Picking.ray(x, y, screen.width, screen.height);
 		switch (EditorState.tool) {
 			case SELECT -> {
+				SceneObject selected = ClientScene.object(EditorState.selectedObject).orElse(null);
+				if (selected != null && Gizmo.begin(ray, EditActions.valueNow(selected, BuiltInChannels.BODY_YAW))) {
+					draggingActor = false;
+					return true;
+				}
 				String picked = Picking.pickActor(ray).filter(id -> !EditorState.locked.contains(id)).orElse(null);
 				if (picked != null) {
 					boolean already = picked.equals(EditorState.selectedObject);
@@ -198,6 +205,10 @@ final class Viewport {
 		if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
 			return false;
 		}
+		if (Gizmo.dragging != Gizmo.NONE) {
+			Gizmo.drag(Picking.ray(x, y, screen.width, screen.height));
+			return true;
+		}
 		if (draggingActor || EditorState.dragPoint >= 0 || EditorState.dragHandle != 0) {
 			Vec3 at = snapped(screen.groundUnderMouse(x, y));
 			if (at != null) {
@@ -278,6 +289,20 @@ final class Viewport {
 			return false;
 		}
 		finishSketch();
+		if (Gizmo.dragging != Gizmo.NONE) {
+			Vec3 pos = Gizmo.previewPos;
+			Double yaw = Gizmo.previewYaw;
+			Gizmo.cancel();
+			SceneObject o = ClientScene.object(EditorState.selectedObject).orElse(null);
+			if (o != null && pos != null) {
+				EditActions.key(o, BuiltInChannels.POSITION, pos);
+				screen.status("Moved and keyed at tick " + ClientScene.tick());
+			} else if (o != null && yaw != null) {
+				EditActions.key(o, BuiltInChannels.BODY_YAW, yaw);
+				screen.status("Turned and keyed at tick " + ClientScene.tick());
+			}
+			return true;
+		}
 		Vec3 target = EditorState.dragPreview;
 		EditorState.dragPreview = null;
 		if (EditorState.dragHandle != 0) {

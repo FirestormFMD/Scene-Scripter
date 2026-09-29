@@ -27,7 +27,7 @@ Right Ctrl opens and closes the editor (rebind it under Controls). While it is o
 | Input | Does |
 |---|---|
 | Hold right mouse | Fly the camera: WASD, Space and Shift or E and Q for up and down, scroll for speed |
-| Left click | Select an actor or a path point; drag a selected actor to move it (this keys its position) |
+| Left click | Select an actor or a path point. A selected actor shows red, green and blue arrows and a ring: drag an arrow to move it along that axis, the ring to turn it, or the actor itself to move it over the ground. Letting go keys the change |
 | Space | Play or pause |
 | ← / → | Step one tick |
 | Shift + ← / → | Jump to the previous or next keyframe or event |
@@ -35,7 +35,7 @@ Right Ctrl opens and closes the editor (rebind it under Controls). While it is o
 | I | Key the selected actor's position at the playhead |
 | R | Turn the selected actor 45° and key it |
 | F | Frame the selected actor |
-| G | Snap placing, dragging and path points to half blocks or block centres (press again to change, again to turn off) |
+| G | Snap placing, dragging and path points to half blocks or block centres, and turning to 15° steps (press again to change, again to turn off) |
 | Ctrl+D | Duplicate the selected object |
 | Ctrl+C / Ctrl+V | Copy the selected keyframes / paste them at the playhead |
 | Delete | Delete the selection |

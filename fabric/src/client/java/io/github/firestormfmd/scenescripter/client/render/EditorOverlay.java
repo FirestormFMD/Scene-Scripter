@@ -17,6 +17,7 @@ import net.minecraft.world.phys.Vec3;
 import io.github.firestormfmd.scenescripter.client.ClientScene;
 import io.github.firestormfmd.scenescripter.client.editor.EditorMode;
 import io.github.firestormfmd.scenescripter.client.editor.EditorState;
+import io.github.firestormfmd.scenescripter.client.editor.Gizmo;
 import io.github.firestormfmd.scenescripter.core.path.BodySettings;
 import io.github.firestormfmd.scenescripter.core.path.Locomotion;
 import io.github.firestormfmd.scenescripter.core.path.LocomotionPlanner;
@@ -49,6 +50,10 @@ public final class EditorOverlay implements DebugRenderer.SimpleDebugRenderer {
 	private static final int GHOST = 0x60FFFFFF;
 	private static final int SHOT = 0xFFE0E070;
 	private static final int HANDLE = 0xFFFFFFFF;
+	private static final int AXIS_X = 0xFFFF5A5A;
+	private static final int AXIS_Y = 0xFF5ADB5A;
+	private static final int AXIS_Z = 0xFF5A8CFF;
+	private static final int RING = 0xC0E0E0E0;
 	/** Most blocks outlined for the selected object's blast; bigger craters show as one box. */
 	private static final int MAX_BLOCK_OUTLINES = 1500;
 	/** Ghosts are drawn this many ticks apart, this far either side of the playhead. */
@@ -106,6 +111,7 @@ public final class EditorOverlay implements DebugRenderer.SimpleDebugRenderer {
 		for (MotionPath path : scene.paths()) {
 			drawPath(mc, scene, path);
 		}
+		drawGizmo(partialTicks);
 
 		int tick = ClientScene.tick();
 		for (ClientScene.AttackLine attack : ClientScene.attacks()) {
@@ -236,6 +242,48 @@ public final class EditorOverlay implements DebugRenderer.SimpleDebugRenderer {
 				}
 				Gizmos.cuboid(new AABB(minX, minY, minZ, maxX + 1, maxY + 1, maxZ + 1), GizmoStyle.stroke(BLAST, 1.5f));
 			}
+		}
+	}
+
+	/** Move arrows and the turning ring on the selected actor, with a preview of the drag in progress. */
+	private static void drawGizmo(float partialTicks) {
+		Entity e = Gizmo.target();
+		if (e == null) {
+			return;
+		}
+		Vec3 o = e.getPosition(partialTicks);
+		int[] colors = {0, AXIS_X, AXIS_Y, AXIS_Z};
+		for (int axis = Gizmo.X; axis <= Gizmo.Z; axis++) {
+			Vec3[] ends = Gizmo.arrow(axis, o, e.getBbHeight());
+			boolean hot = Gizmo.hovered == axis || Gizmo.dragging == axis;
+			int color = hot ? SELECTED : colors[axis];
+			Gizmos.line(ends[0], ends[1], color, hot ? 4f : 2.5f);
+			Gizmos.point(ends[1], color, hot ? 10f : 7f);
+		}
+		boolean ringHot = Gizmo.hovered == Gizmo.YAW || Gizmo.dragging == Gizmo.YAW;
+		int ringColor = ringHot ? SELECTED : RING;
+		int segments = 48;
+		for (int i = 0; i < segments; i++) {
+			double a = 2 * Math.PI * i / segments;
+			double b = 2 * Math.PI * (i + 1) / segments;
+			Gizmos.line(o.add(Math.cos(a) * Gizmo.RING, 0.05, Math.sin(a) * Gizmo.RING),
+					o.add(Math.cos(b) * Gizmo.RING, 0.05, Math.sin(b) * Gizmo.RING), ringColor, ringHot ? 3f : 1.5f);
+		}
+		double facing = Math.toRadians(e.getYRot());
+		Gizmos.point(o.add(-Math.sin(facing) * Gizmo.RING, 0.05, Math.cos(facing) * Gizmo.RING), ringColor, 8f);
+		if (Gizmo.previewPos != null) {
+			Vec3 at = mc(Gizmo.previewPos);
+			double hw = e.getBbWidth() / 2;
+			Gizmos.cuboid(new AABB(at.add(-hw, 0, -hw), at.add(hw, e.getBbHeight(), hw)), GizmoStyle.stroke(DRAFT, 2f));
+			Gizmos.line(o, at, DRAFT, 1.5f);
+		}
+		if (Gizmo.previewYaw != null) {
+			double yaw = Math.toRadians(Gizmo.previewYaw);
+			Vec3 to = o.add(-Math.sin(yaw) * Gizmo.RING, 0.05, Math.cos(yaw) * Gizmo.RING);
+			Gizmos.line(o.add(0, 0.05, 0), to, DRAFT, 3f);
+			Gizmos.point(to, DRAFT, 10f);
+			Gizmos.billboardText(String.format(java.util.Locale.ROOT, "%.0f\u00b0", Gizmo.previewYaw), to.add(0, 0.4, 0),
+					net.minecraft.gizmos.TextGizmo.Style.forColorAndCentered(DRAFT));
 		}
 	}
 
