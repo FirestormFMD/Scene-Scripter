@@ -124,7 +124,7 @@ public final class SceneCommands {
 												.executes(ctx -> withSession(ctx, s -> {
 													s.setBounds(box(ctx));
 													return "Bounds: " + describe(s.scene().bounds());
-												})))))))));
+												}))))))))));
 	}
 
 	private static BlockBox box(CommandContext<CommandSourceStack> ctx) {
