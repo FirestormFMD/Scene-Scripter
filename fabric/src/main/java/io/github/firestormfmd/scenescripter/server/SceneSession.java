@@ -212,9 +212,20 @@ public final class SceneSession {
 
 	private void refreshAfterEdit() {
 		appliedRevision = history.revision();
-		VirtualWorld world = new VirtualWorld(level(), journal.originals());
-		evaluator.setTerrain(new LevelTerrain(level(), scene.settings().groundFilter(), world::baseState));
+		var originals = journal.originals();
+		VirtualWorld world = new VirtualWorld(level(), originals);
+		var filter = scene.settings().groundFilter();
+		LevelTerrain base = new LevelTerrain(level(), filter, world::baseState);
+		evaluator.setTerrain(base);
 		Solver.Solution solution = solver.solve(scene, evaluator, world);
+		if (world.changedAnything()) {
+			// Paths that start after a blast should follow its crater, so solve again with each clip planned on
+			// the world as the first pass left it at the clip's start.
+			VirtualWorld firstPass = world;
+			evaluator.setTerrain(base, tick -> new LevelTerrain(level(), filter, pos -> firstPass.stateAt(pos, tick)));
+			world = new VirtualWorld(level(), originals);
+			solution = solver.solve(scene, evaluator, world);
+		}
 		attackResults = solution.attacks();
 		explosions = solution.explosions();
 		changeSets = world.changeSets();
@@ -320,6 +331,9 @@ public final class SceneSession {
 		}
 		if (step.contiguous()) {
 			for (EventWindow.Fired fired : EventWindow.between(scene, step.from(), step.to())) {
+				if (!io.github.firestormfmd.scenescripter.core.scene.EventCondition.holds(fired.event(), fired.owner(), scene)) {
+					continue;
+				}
 				if (fired.event().type().equals("command")) {
 					tracks.runCommand(fired.event());
 				} else {

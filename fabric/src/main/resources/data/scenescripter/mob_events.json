@@ -1,0 +1,18 @@
+{
+	"_comment": "Mob-specific events. Each plays a vanilla entity event (the byte a client animates from). 'attack' entries replace the arm swing for mobs that attack with their own animation. Add entries to cover more mobs without code.",
+	"events": [
+		{"id": "attack", "label": "attack", "types": ["minecraft:iron_golem", "minecraft:ravager", "minecraft:hoglin", "minecraft:zoglin", "minecraft:warden", "minecraft:evoker_fangs", "minecraft:creaking"], "entity_event": 4},
+		{"id": "offer_flower", "label": "offer flower", "types": ["minecraft:iron_golem"], "entity_event": 11},
+		{"id": "stop_offering", "label": "stop offering", "types": ["minecraft:iron_golem"], "entity_event": 34},
+		{"id": "eat_grass", "label": "eat grass", "types": ["minecraft:sheep"], "entity_event": 10},
+		{"id": "shake", "label": "shake off water", "types": ["minecraft:wolf"], "entity_event": 8},
+		{"id": "sonic_boom", "label": "sonic boom", "types": ["minecraft:warden"], "entity_event": 62},
+		{"id": "tendrils", "label": "tendrils", "types": ["minecraft:warden"], "entity_event": 61},
+		{"id": "roar_stun", "label": "stunned", "types": ["minecraft:ravager"], "entity_event": 39},
+		{"id": "teleport", "label": "teleport puff", "types": ["minecraft:enderman", "minecraft:shulker"], "entity_event": 46},
+		{"id": "hearts", "label": "hearts", "types": ["minecraft:cow", "minecraft:pig", "minecraft:sheep", "minecraft:chicken", "minecraft:wolf", "minecraft:cat", "minecraft:horse", "minecraft:rabbit", "minecraft:fox", "minecraft:villager"], "entity_event": 18},
+		{"id": "angry", "label": "angry", "types": ["minecraft:villager"], "entity_event": 13},
+		{"id": "happy", "label": "happy", "types": ["minecraft:villager"], "entity_event": 14},
+		{"id": "totem", "label": "totem", "types": ["minecraft:mannequin", "minecraft:zombie", "minecraft:skeleton", "minecraft:pillager", "minecraft:vindicator"], "entity_event": 35}
+	]
+}

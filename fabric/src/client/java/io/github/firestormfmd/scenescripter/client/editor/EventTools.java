@@ -57,6 +57,12 @@ final class EventTools {
 		}
 	}
 
+	/** Adds a mob-specific event, such as an iron golem offering a flower. */
+	static void mobEvent(SceneObject o, String id, int tick) {
+		ClientScene.scene().ifPresent(scene -> ClientNet.edit(new Edits.AddEvent(o.id(), new SceneEvent(
+				EditActions.freshId(scene, "e"), tick, "mob_event", null, Map.of("event", id), null))));
+	}
+
 	/** Adds a block event on the selected object for the block at {@code pos}. */
 	static void block(SceneObject o, String type, net.minecraft.core.BlockPos pos, String blockState, int tick) {
 		Scene scene = ClientScene.scene().orElse(null);

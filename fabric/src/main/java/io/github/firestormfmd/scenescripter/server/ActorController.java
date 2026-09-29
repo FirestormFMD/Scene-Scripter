@@ -53,6 +53,8 @@ public final class ActorController {
 	private final ServerLevel level;
 	private final Map<String, Entity> actors = new LinkedHashMap<>();
 	private final Map<String, Boolean> wasDead = new HashMap<>();
+	/** Objects that existed at the last update, so spawn and despawn effects play only when the lifetime turns. */
+	private final Set<String> existed = new HashSet<>();
 	private final Map<String, Double> stepDistance = new HashMap<>();
 	private final Set<String> reportedMissingTypes = new HashSet<>();
 	/** The spawn-time look each actor was made with; a change means the actor is made again. */
@@ -98,6 +100,7 @@ public final class ActorController {
 			seen.add(o.id());
 			ObjectState s = evaluator.evaluate(o, tick);
 			states.put(o.id(), s);
+			boolean existedBefore = s.exists() ? !existed.add(o.id()) : existed.remove(o.id());
 			boolean gone = s.dead() && s.ticksDead() >= DEATH_ANIMATION_TICKS;
 			boolean visible = s.exists() && !gone && !hidden.contains(o.id());
 			Entity e = actors.get(o.id());
@@ -110,6 +113,9 @@ public final class ActorController {
 			if (!visible) {
 				if (e != null) {
 					if (gone && !jump) {
+						level.broadcastEntityEvent(e, POOF_EVENT);
+					}
+					if (!jump && existedBefore && !s.exists() && "poof".equals(o.appearance().get("despawn_effect"))) {
 						level.broadcastEntityEvent(e, POOF_EVENT);
 					}
 					if (!jump && !s.dead() && BREAKS_ON_IMPACT.contains(o.entityType())) {
@@ -127,22 +133,30 @@ public final class ActorController {
 				e = null;
 				changed = true;
 			}
+			// A new entity always snaps into place, but only this object's; the others still glide.
+			boolean snap = jump;
+			boolean spawnedNow = false;
 			if (e == null) {
 				e = spawn(o, s);
 				if (e == null) {
 					continue;
 				}
 				changed = true;
-				jump = true;
+				spawnedNow = !jump && !existedBefore;
+				snap = true;
 			}
-			ActorApplier.apply(level, e, s, jump);
+			ActorApplier.apply(level, e, s, snap);
 			typeSpecific(evaluator, o, e, s, tick);
+			if (spawnedNow && "poof".equals(o.appearance().get("spawn_effect"))) {
+				level.broadcastEntityEvent(e, POOF_EVENT);
+			}
 			wasDead.put(o.id(), s.dead());
-			if (!jump) {
+			if (!snap) {
 				ambientEffects(o, e, s, tick);
 			}
 		}
 		ride(states);
+		existed.retainAll(seen);
 		for (Iterator<String> it = actors.keySet().iterator(); it.hasNext(); ) {
 			String id = it.next();
 			if (!seen.contains(id)) {
@@ -233,6 +247,7 @@ public final class ActorController {
 		actors.clear();
 		spawnedLook.clear();
 		wasDead.clear();
+		existed.clear();
 		stepDistance.clear();
 	}
 

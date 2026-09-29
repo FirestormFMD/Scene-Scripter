@@ -48,6 +48,7 @@ public final class EditorOverlay implements DebugRenderer.SimpleDebugRenderer {
 	private static final int BOUNDS = 0x90B0B0B0;
 	private static final int GHOST = 0x60FFFFFF;
 	private static final int SHOT = 0xFFE0E070;
+	private static final int HANDLE = 0xFFFFFFFF;
 	/** Most blocks outlined for the selected object's blast; bigger craters show as one box. */
 	private static final int MAX_BLOCK_OUTLINES = 1500;
 	/** Ghosts are drawn this many ticks apart, this far either side of the playhead. */
@@ -258,9 +259,33 @@ public final class EditorOverlay implements DebugRenderer.SimpleDebugRenderer {
 						net.minecraft.gizmos.TextGizmo.Style.forColorAndCentered(PROBLEM));
 			}
 		}
-		for (PathPoint point : path.points()) {
-			Gizmos.point(mc(point.pos()).add(0, 0.1, 0), color, selected ? 8f : 5f);
+		List<PathPoint> points = path.points();
+		for (int i = 0; i < points.size(); i++) {
+			boolean current = selected && i == EditorState.selectedPoint;
+			Gizmos.point(mc(points.get(i).pos()).add(0, 0.1, 0), current ? HANDLE : color, current ? 11f : selected ? 8f : 5f);
 		}
+		if (selected && EditorState.selectedPoint >= 0 && EditorState.selectedPoint < points.size()) {
+			drawHandles(points.get(EditorState.selectedPoint));
+		}
+	}
+
+	/** The Bézier handles of the selected path point, following the mouse while one is dragged. */
+	private static void drawHandles(PathPoint point) {
+		if (point.handleOut() == null) {
+			return;
+		}
+		Vec3 at = mc(point.pos()).add(0, 0.1, 0);
+		Vec3 out = mc(point.handleOut());
+		Vec3 in = point.handleIn() == null ? out.scale(-1) : mc(point.handleIn());
+		var preview = EditorState.dragPreview;
+		if (EditorState.dragHandle != 0 && preview != null) {
+			Vec3 dragged = new Vec3(preview.x() - point.pos().x(), 0, preview.z() - point.pos().z());
+			out = EditorState.dragHandle > 0 ? dragged : dragged.scale(-1);
+			in = out.scale(-1);
+		}
+		Gizmos.line(at.add(in), at.add(out), HANDLE, 1.5f);
+		Gizmos.point(at.add(in), HANDLE, 7f);
+		Gizmos.point(at.add(out), HANDLE, 7f);
 	}
 
 	private static Locomotion plan(Minecraft mc, Scene scene, MotionPath path) {

@@ -166,6 +166,17 @@ final class Inspector {
 					c -> c.setLifetime(0, -1)));
 		}
 		rowY += 14;
+		for (String effect : List.of("spawn_effect", "despawn_effect")) {
+			boolean poof = "poof".equals(o.appearance().get(effect));
+			row(effect.equals("spawn_effect") ? "Appears" : "Leaves", poof ? "in a puff of smoke" : "quietly", false,
+					() -> EditActions.change(o, "Change " + effect.replace('_', ' '), c -> {
+						if (poof) {
+							c.appearance().remove(effect);
+						} else {
+							c.appearance().put(effect, "poof");
+						}
+					}), null);
+		}
 
 		heading("Transform");
 		Vec3 pos = currentPosition(o);
@@ -243,6 +254,30 @@ final class Inspector {
 					c.setRules(new io.github.firestormfmd.scenescripter.core.scene.InteractionRules(r.attack(), r.knockback(),
 							r.crits(), r.hitCooldown(), r.autoDeath(), next, r.explosions()));
 				}), null);
+
+		if (o.group() != null) {
+			var members = scene.objects().stream().filter(m -> o.group().equals(m.group())).toList();
+			label("Group of " + members.size() + ":");
+			int moveY = rowY;
+			row("Move group", "by x y z...", false, () -> editAt(moveY, "0 0 0", v -> {
+				String[] c = v.trim().split("\\s+");
+				try {
+					var by = new Vec3(Double.parseDouble(c[0]), Double.parseDouble(c[1]), Double.parseDouble(c[2]));
+					groupEdit(members, "Move group", m -> io.github.firestormfmd.scenescripter.core.scene.SceneTransform.moveObject(m, by));
+				} catch (RuntimeException ex) {
+					screen.status("Three numbers, such as \"4 0 -2\"");
+				}
+			}), null);
+			int retimeY = rowY;
+			row("Retime group", "by ticks...", false, () -> editAt(retimeY, "20", v -> {
+				try {
+					int by = Integer.parseInt(v.trim());
+					groupEdit(members, "Retime group", m -> io.github.firestormfmd.scenescripter.core.scene.SceneTransform.retimeObject(m, by));
+				} catch (NumberFormatException ex) {
+					screen.status("A whole number of ticks; negative moves earlier");
+				}
+			}), null);
+		}
 
 		heading("Crowd");
 		row("Formation", EditorState.crowdFormation.id(), false, () -> {
@@ -379,22 +414,27 @@ final class Inspector {
 			}
 		}
 		rowY += 13;
+		var mobEvents = io.github.firestormfmd.scenescripter.actor.MobEvents.forType(o.entityType());
+		for (int start = 0; start < mobEvents.size(); start += 3) {
+			if (visible()) {
+				Ui ui = screen.ui();
+				int bw = (w - 16) / 3;
+				for (int i = start; i < Math.min(start + 3, mobEvents.size()); i++) {
+					var m = mobEvents.get(i);
+					ui.button(x + 6 + (i - start) * (bw + 2), rowY, bw, 11, ui.fit(m.label(), bw - 4), false,
+							() -> EventTools.mobEvent(o, m.id(), tick));
+				}
+			}
+			rowY += 13;
+		}
 		String vehicle = EditActions.valueNow(o, BuiltInChannels.VEHICLE);
 		row("Riding", vehicle.isEmpty() ? "nothing (mount nearest)" : vehicle + " (dismount)", EditActions.hasKeyNow(o, "vehicle"),
 				() -> EventTools.add(o, vehicle.isEmpty() ? "mount" : "dismount", tick), null);
 		for (var e : o.events()) {
-			if (!visible()) {
-				rowY += Ui.ROW_HEIGHT;
-				continue;
-			}
-			String desc = e.type() + " @" + e.tick() + (e.target() != null ? " -> " + e.target() : "")
-					+ (e.isGenerated() ? " (auto)" : "");
-			row(e.isGenerated() ? "auto" : "event", desc, false, () -> {
-				if (!e.isGenerated()) {
-					ClientNet.edit(new Edits.RemoveEvent(o.id(), e.id()));
-				}
-			}, null);
+			eventRow(o, e);
 		}
+
+		variables(o);
 
 		rowY += 6;
 		if (visible()) {
@@ -423,7 +463,7 @@ final class Inspector {
 			}
 		}
 		var members = io.github.firestormfmd.scenescripter.core.crowd.CrowdBuilder.build(o, EditorState.crowdFormation,
-				EditorState.crowdCount, EditorState.crowdSpacing, i -> ids.get(i - 1), 4, 6, o.id().hashCode());
+				EditorState.crowdCount, EditorState.crowdSpacing, i -> ids.get(i - 1), 4, 6, 0.1, o.id().hashCode());
 		java.util.List<io.github.firestormfmd.scenescripter.core.edit.EditOp> ops = new java.util.ArrayList<>();
 		int index = scene.indexOfObject(o.id()) + 1;
 		for (var m : members) {
@@ -512,6 +552,8 @@ final class Inspector {
 					e.params().getOrDefault("command", e.params().getOrDefault("name", "")));
 			row("event", desc + "  (remove)", false, () -> ClientNet.edit(new Edits.RemoveEvent(t.id(), e.id())), null);
 		}
+		variables(t);
+		label("Scene variables are read as scene.<name>.");
 	}
 
 	private static void addTrackEvent(SceneObject t, int tick, String type, java.util.Map<String, Object> params) {
@@ -594,6 +636,107 @@ final class Inspector {
 	private static void setRules(Scene scene, io.github.firestormfmd.scenescripter.core.scene.InteractionRules rules) {
 		var h = Edits.SetSceneHeader.of(scene);
 		ClientNet.edit(new Edits.SetSceneHeader(h.name(), h.length(), h.origin(), h.bounds(), h.settings().withRules(rules)));
+	}
+
+	/** One event: what it is, its condition (click to edit) and a button to remove it. */
+	private void eventRow(SceneObject o, io.github.firestormfmd.scenescripter.core.scene.SceneEvent e) {
+		if (!visible()) {
+			rowY += Ui.ROW_HEIGHT + 1;
+			return;
+		}
+		Ui ui = screen.ui();
+		String what = (e.type().equals("mob_event") ? String.valueOf(e.params().get("event")) : e.type()) + " @" + e.tick()
+				+ (e.target() != null ? " > " + e.target() : "");
+		ui.text(ui.fit(what, w - 90), x + 6, rowY + 2, e.isGenerated() ? 0xFFB06CFF : Ui.TEXT_DIM);
+		if (e.isGenerated()) {
+			ui.text("auto", x + w - 30, rowY + 2, Ui.TEXT_DIM);
+		} else {
+			String cond = e.params().get("if") instanceof String c && !c.isBlank() ? c : "";
+			int ry = rowY;
+			ui.button(x + w - 80, rowY, 58, 11, cond.isEmpty() ? "always" : ui.fit("if " + cond, 54), false,
+					() -> screen.editText(x + 6, ry, w - 12, cond.isEmpty() ? "lives <= 0" : cond, v -> {
+						java.util.Map<String, Object> params = new java.util.HashMap<>(e.params());
+						if (v.isBlank()) {
+							params.remove("if");
+						} else {
+							params.put("if", v.trim());
+						}
+						ClientNet.edit(new Edits.Composite("Set event condition", List.of(new Edits.RemoveEvent(o.id(), e.id()),
+								new Edits.AddEvent(o.id(), new io.github.firestormfmd.scenescripter.core.scene.SceneEvent(e.id(),
+										e.tick(), e.type(), e.target(), params, null)))));
+					}));
+			ui.button(x + w - 20, rowY, 14, 11, "x", false, () -> ClientNet.edit(new Edits.RemoveEvent(o.id(), e.id())));
+		}
+		rowY += Ui.ROW_HEIGHT + 1;
+	}
+
+	/** Custom variables: numbers and switches of the user's own, usable in event conditions. */
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	private void variables(SceneObject o) {
+		heading("Variables");
+		java.util.Set<String> capabilityNames = new java.util.HashSet<>();
+		ClientScene.actor(o.id()).ifPresent(a -> io.github.firestormfmd.scenescripter.actor.Capabilities.of(a)
+				.forEach(c -> capabilityNames.add(c.spec().name())));
+		for (var entry : o.channels().entrySet()) {
+			String name = entry.getKey();
+			if (BuiltInChannels.byName(name).isPresent() || capabilityNames.contains(name)) {
+				continue;
+			}
+			io.github.firestormfmd.scenescripter.core.anim.Channel ch = entry.getValue();
+			Object value = ch.valueAt(ClientScene.tick());
+			int ry = rowY;
+			boolean keyed = EditActions.hasKeyNow(o, name);
+			if (value instanceof Boolean b) {
+				row(name, b ? "true" : "false", keyed, () -> EditActions.keyRaw(o, name, !b, true),
+						() -> EditActions.keyRaw(o, name, b, true));
+			} else {
+				row(name, String.valueOf(value), keyed, () -> editAt(ry, String.valueOf(value), v -> {
+					try {
+						Object parsed = ch.type() == io.github.firestormfmd.scenescripter.core.anim.ValueType.INT
+								? (Object) Integer.parseInt(v.trim()) : (Object) Double.parseDouble(v.trim());
+						EditActions.keyRaw(o, name, parsed, ch.type() == io.github.firestormfmd.scenescripter.core.anim.ValueType.INT);
+					} catch (NumberFormatException ex) {
+						screen.status(name + " is a number");
+					}
+				}), () -> EditActions.keyRaw(o, name, value, true));
+			}
+		}
+		int addY = rowY;
+		row("Add", "name and type...", false, () -> editAt(addY, "lives int 3", v -> addVariable(o, v)), null);
+		label("Types: int, float, bool. Use in event conditions.");
+	}
+
+	private void addVariable(SceneObject o, String spec) {
+		String[] parts = spec.trim().split("\\s+");
+		if (parts.length < 2 || !parts[0].matches("[a-z_][a-z0-9_]*") || BuiltInChannels.byName(parts[0]).isPresent()) {
+			screen.status("Try \"lives int 3\": a lowercase name, a type and a starting value");
+			return;
+		}
+		try {
+			io.github.firestormfmd.scenescripter.core.anim.Channel<?> ch = switch (parts[1]) {
+				case "int" -> new io.github.firestormfmd.scenescripter.core.anim.Channel<>(
+						io.github.firestormfmd.scenescripter.core.anim.ValueType.INT, parts.length > 2 ? Integer.parseInt(parts[2]) : 0);
+				case "float" -> new io.github.firestormfmd.scenescripter.core.anim.Channel<>(
+						io.github.firestormfmd.scenescripter.core.anim.ValueType.FLOAT, parts.length > 2 ? Double.parseDouble(parts[2]) : 0.0);
+				case "bool" -> new io.github.firestormfmd.scenescripter.core.anim.Channel<>(
+						io.github.firestormfmd.scenescripter.core.anim.ValueType.BOOL, parts.length > 2 && Boolean.parseBoolean(parts[2]));
+				default -> throw new IllegalArgumentException(parts[1]);
+			};
+			EditActions.change(o, "Add variable " + parts[0], c -> c.putChannel(parts[0], ch.copy()));
+		} catch (RuntimeException ex) {
+			screen.status("Types are int, float and bool");
+		}
+	}
+
+	/** Changes every object in a group in one undoable step. */
+	private static void groupEdit(List<SceneObject> members, String label, Consumer<SceneObject> change) {
+		List<io.github.firestormfmd.scenescripter.core.edit.EditOp> ops = new java.util.ArrayList<>();
+		for (SceneObject m : members) {
+			SceneObject copy = m.copy();
+			change.accept(copy);
+			ops.add(new Edits.ReplaceObject(copy, label));
+		}
+		ClientNet.edit(new Edits.Composite(label, ops));
 	}
 
 	private Vec3 currentPosition(SceneObject o) {

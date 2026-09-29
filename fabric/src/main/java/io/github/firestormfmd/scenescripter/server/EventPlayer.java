@@ -67,7 +67,23 @@ public final class EventPlayer {
 	public void fire(SceneObject owner, SceneEvent event) {
 		Entity actor = session.actors().actor(owner.id()).orElse(null);
 		switch (event.type()) {
-			case "attack", "swing" -> swing(actor, event);
+			case "attack" -> {
+				// Mobs like iron golems attack with their own animation instead of an arm swing.
+				var own = actor == null ? java.util.Optional.<io.github.firestormfmd.scenescripter.actor.MobEvents.MobEvent>empty()
+						: io.github.firestormfmd.scenescripter.actor.MobEvents.find(owner.entityType(), "attack");
+				if (own.isPresent()) {
+					session.level().broadcastEntityEvent(actor, own.get().entityEvent());
+				} else {
+					swing(actor, event);
+				}
+			}
+			case "swing" -> swing(actor, event);
+			case "mob_event" -> {
+				if (actor != null && event.params().get("event") instanceof String id) {
+					io.github.firestormfmd.scenescripter.actor.MobEvents.find(owner.entityType(), id)
+							.ifPresent(m -> session.level().broadcastEntityEvent(actor, m.entityEvent()));
+				}
+			}
 			case "hurt" -> {
 				if (actor != null) {
 					session.level().broadcastDamageEvent(actor, session.level().damageSources().generic());

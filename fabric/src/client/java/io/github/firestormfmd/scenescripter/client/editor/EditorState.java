@@ -90,6 +90,10 @@ public final class EditorState {
 	public static @Nullable Vec3 dragPreview;
 	/** Index of the path point being dragged, or -1. */
 	public static int dragPoint = -1;
+	/** The selected point of the selected path, for inserting, deleting and handles; -1 for none. */
+	public static int selectedPoint = -1;
+	/** The handle of the selected point being dragged: -1 in, 1 out, 0 none. */
+	public static int dragHandle;
 	/** The last path selected, offered when giving an object a motion clip. */
 	public static @Nullable String lastPath;
 
@@ -116,6 +120,7 @@ public final class EditorState {
 	}
 
 	public static void selectPath(@Nullable String id) {
+		selectedPoint = -1;
 		selectedPath = id;
 		if (id != null) {
 			lastPath = id;

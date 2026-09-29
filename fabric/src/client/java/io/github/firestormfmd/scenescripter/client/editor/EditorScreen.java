@@ -542,6 +542,17 @@ public final class EditorScreen extends Screen {
 			EditorState.selectedKeyTick = -1;
 		} else if (o != null && !Scene.isTracks(o)) {
 			EditActions.delete(o);
+		} else if (EditorState.selectedPath != null && EditorState.selectedPoint >= 0) {
+			var path = scene.path(EditorState.selectedPath).orElse(null);
+			int i = EditorState.selectedPoint;
+			if (path != null && i < path.points().size() && path.points().size() > 2) {
+				var pts = new java.util.ArrayList<>(path.points());
+				pts.remove(i);
+				ClientNet.edit(new io.github.firestormfmd.scenescripter.core.edit.Edits.SetPathPoints(path.id(), pts, "Delete path point"));
+				EditorState.selectedPoint = -1;
+			} else {
+				status("A path needs at least two points");
+			}
 		} else if (EditorState.selectedPath != null) {
 			ClientNet.edit(new io.github.firestormfmd.scenescripter.core.edit.Edits.RemovePath(EditorState.selectedPath));
 			EditorState.selectPath(null);

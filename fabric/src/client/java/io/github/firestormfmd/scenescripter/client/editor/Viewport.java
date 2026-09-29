@@ -24,6 +24,9 @@ final class Viewport {
 	private static final double AIR_HEIGHT = 4;
 	private final EditorScreen screen;
 	private boolean draggingActor;
+	/** Freehand path sketching: the raw points and where they start in the draft. */
+	private final List<Vec3> sketch = new ArrayList<>();
+	private int sketchStart = -1;
 	private double lastMouseX;
 	private double lastMouseY;
 
@@ -91,10 +94,17 @@ final class Viewport {
 					draggingActor = already;
 					return true;
 				}
+				int handle = pickHandle(scene, ray);
+				if (handle != 0) {
+					draggingActor = false;
+					EditorState.dragHandle = handle;
+					return true;
+				}
 				int point = pickPathPoint(scene, ray);
 				if (point >= 0) {
 					draggingActor = false;
 					EditorState.dragPoint = point;
+					EditorState.selectedPoint = point;
 					return true;
 				}
 				EditorState.selectObject(null);
@@ -111,6 +121,9 @@ final class Viewport {
 				Vec3 at = snapped(screen.groundUnderMouse(x, y));
 				if (at != null) {
 					EditorState.pathDraft.add(EditorState.pathDraftAir ? at.add(0, AIR_HEIGHT, 0) : at);
+					sketch.clear();
+					sketch.add(at);
+					sketchStart = EditorState.pathDraft.size() - 1;
 				}
 			}
 			case BLOCKS -> blockClick(ray);
@@ -185,22 +198,104 @@ final class Viewport {
 		if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
 			return false;
 		}
-		if (draggingActor || EditorState.dragPoint >= 0) {
+		if (draggingActor || EditorState.dragPoint >= 0 || EditorState.dragHandle != 0) {
 			Vec3 at = snapped(screen.groundUnderMouse(x, y));
 			if (at != null) {
 				EditorState.dragPreview = at;
 			}
 			return true;
 		}
+		if (EditorState.tool == EditorState.Tool.PATH && sketchStart >= 0) {
+			// Holding the button while drawing sketches freehand; the stroke is thinned when released.
+			Vec3 at = screen.groundUnderMouse(x, y);
+			if (at != null && at.distanceTo(sketch.getLast()) >= 0.5) {
+				sketch.add(at);
+				EditorState.pathDraft.add(EditorState.pathDraftAir ? at.add(0, AIR_HEIGHT, 0) : at);
+			}
+			return true;
+		}
 		return false;
+	}
+
+	/** Thins a freehand stroke down to the few points needed to follow it within a third of a block. */
+	private void finishSketch() {
+		if (sketchStart < 0) {
+			return;
+		}
+		if (sketch.size() >= 3 && sketchStart + sketch.size() == EditorState.pathDraft.size()) {
+			List<Vec3> flat = new ArrayList<>();
+			for (Vec3 p : sketch) {
+				flat.add(p.withY(0));
+			}
+			List<Vec3> kept = new ArrayList<>();
+			for (int i : io.github.firestormfmd.scenescripter.core.capture.Rdp.simplify(flat, 0.35)) {
+				Vec3 p = sketch.get(i);
+				kept.add(EditorState.pathDraftAir ? p.add(0, AIR_HEIGHT, 0) : p);
+			}
+			while (EditorState.pathDraft.size() > sketchStart) {
+				EditorState.pathDraft.removeLast();
+			}
+			EditorState.pathDraft.addAll(kept);
+			screen.status("Sketch simplified to " + kept.size() + " points");
+		}
+		sketch.clear();
+		sketchStart = -1;
+	}
+
+	/** A handle of the selected path point under the ray: -1 in, 1 out, 0 none. */
+	private int pickHandle(Scene scene, Picking.Ray ray) {
+		PathPoint p = selectedPathPoint(scene);
+		if (p == null || p.handleOut() == null) {
+			return 0;
+		}
+		for (int side : new int[] {-1, 1}) {
+			Vec3 h = p.pos().add(side < 0 ? p.handleIn() : p.handleOut());
+			net.minecraft.world.phys.Vec3 v = new net.minecraft.world.phys.Vec3(h.x(), h.y(), h.z()).subtract(ray.from());
+			double along = v.dot(ray.direction());
+			if (along > 0 && v.subtract(ray.direction().scale(along)).length() < 0.5) {
+				return side;
+			}
+		}
+		return 0;
+	}
+
+	static PathPoint selectedPathPoint(Scene scene) {
+		MotionPath path = EditorState.selectedPath == null ? null : scene.path(EditorState.selectedPath).orElse(null);
+		if (path == null || EditorState.selectedPoint < 0 || EditorState.selectedPoint >= path.points().size()) {
+			return null;
+		}
+		return path.points().get(EditorState.selectedPoint);
+	}
+
+	private static void editPoints(MotionPath path, String label, java.util.function.Consumer<List<PathPoint>> change) {
+		List<PathPoint> points = new ArrayList<>(path.points());
+		change.accept(points);
+		ClientNet.edit(new Edits.SetPathPoints(path.id(), points, label));
 	}
 
 	boolean mouseReleased(double x, double y, int button) {
 		if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
 			return false;
 		}
+		finishSketch();
 		Vec3 target = EditorState.dragPreview;
 		EditorState.dragPreview = null;
+		if (EditorState.dragHandle != 0) {
+			int side = EditorState.dragHandle;
+			EditorState.dragHandle = 0;
+			Scene scene = ClientScene.scene().orElse(null);
+			MotionPath path = scene == null || EditorState.selectedPath == null ? null : scene.path(EditorState.selectedPath).orElse(null);
+			PathPoint p = scene == null ? null : selectedPathPoint(scene);
+			if (path != null && p != null && target != null) {
+				Vec3 offset = target.subtract(p.pos());
+				Vec3 handle = path.kind() == PathKind.GROUND ? offset.withY(0) : offset.add(0, AIR_HEIGHT, 0);
+				int index = EditorState.selectedPoint;
+				// Handles stay mirrored so the curve passes smoothly through the point.
+				editPoints(path, "Shape path", pts -> pts.set(index, new PathPoint(p.pos(),
+						side < 0 ? handle : handle.scale(-1), side < 0 ? handle.scale(-1) : handle)));
+			}
+			return true;
+		}
 		if (draggingActor) {
 			draggingActor = false;
 			SceneObject o = ClientScene.object(EditorState.selectedObject).orElse(null);
@@ -258,6 +353,39 @@ final class Viewport {
 				}
 				default -> {
 				}
+			}
+		}
+		Scene scene = ClientScene.scene().orElse(null);
+		MotionPath selectedPath = scene == null || EditorState.selectedPath == null ? null
+				: scene.path(EditorState.selectedPath).orElse(null);
+		if (selectedPath != null && EditorState.selectedPoint >= 0 && EditorState.selectedPoint < selectedPath.points().size()) {
+			int i = EditorState.selectedPoint;
+			List<PathPoint> pts = selectedPath.points();
+			if (key == GLFW.GLFW_KEY_N) {
+				// A new point halfway to the next one, or beyond the last.
+				Vec3 a = pts.get(i).pos();
+				Vec3 b = i + 1 < pts.size() ? pts.get(i + 1).pos() : a.add(a.subtract(i > 0 ? pts.get(i - 1).pos() : a.add(-2, 0, 0)));
+				editPoints(selectedPath, "Insert path point", list -> list.add(i + 1, PathPoint.at(Vec3.lerp(a, b, 0.5))));
+				EditorState.selectedPoint = i + 1;
+				return true;
+			}
+			if (key == GLFW.GLFW_KEY_H) {
+				PathPoint p = pts.get(i);
+				if (p.handleOut() != null) {
+					editPoints(selectedPath, "Automatic curve", list -> list.set(i, PathPoint.at(p.pos())));
+					screen.status("Point back to an automatic curve");
+				} else {
+					Vec3 prev = i > 0 ? pts.get(i - 1).pos() : p.pos();
+					Vec3 next = i + 1 < pts.size() ? pts.get(i + 1).pos() : p.pos();
+					Vec3 dir = next.subtract(prev).scale(1 / 6.0);
+					if (selectedPath.kind() == PathKind.GROUND) {
+						dir = dir.withY(0);
+					}
+					Vec3 out = dir.length() < 1.0e-6 ? new Vec3(1, 0, 0) : dir;
+					editPoints(selectedPath, "Bezier handles", list -> list.set(i, new PathPoint(p.pos(), out.scale(-1), out)));
+					screen.status("Drag the white handles to shape the curve; H again for automatic");
+				}
+				return true;
 			}
 		}
 		if (key == GLFW.GLFW_KEY_G) {

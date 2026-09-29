@@ -44,6 +44,11 @@ public final class VirtualWorld implements BlockWorld, BlockGetter {
 	private final Map<BlockPos, SavedBlock> originals = new HashMap<>();
 	private final Map<BlockPos, BlockState> overlay = new HashMap<>();
 	private final Map<String, Pending> sets = new LinkedHashMap<>();
+	/** Every state each changed block took, with the tick, in the order the solver made them. */
+	private final Map<BlockPos, List<Timed>> history = new HashMap<>();
+
+	private record Timed(int tick, BlockState state) {
+	}
 
 	private static final class Pending {
 		final int tick;
@@ -73,6 +78,28 @@ public final class VirtualWorld implements BlockWorld, BlockGetter {
 			return original.state();
 		}
 		return level.isLoaded(pos) ? level.getBlockState(pos) : Blocks.AIR.defaultBlockState();
+	}
+
+	/**
+	 * The block at a position as it is at a tick, with the solve's changes up to and including that tick. Stays
+	 * valid after the solve, so paths can be planned on the world as it is when they start.
+	 */
+	public BlockState stateAt(BlockPos pos, int tick) {
+		List<Timed> changes = history.get(pos);
+		BlockState state = null;
+		if (changes != null) {
+			for (Timed t : changes) {
+				if (t.tick() <= tick) {
+					state = t.state();
+				}
+			}
+		}
+		return state != null ? state : baseState(pos);
+	}
+
+	/** Whether the solve changed any block. */
+	public boolean changedAnything() {
+		return !history.isEmpty();
 	}
 
 	/** The block changes the solve made, one set per event, for the block journal. */
@@ -201,11 +228,13 @@ public final class VirtualWorld implements BlockWorld, BlockGetter {
 	public void reset() {
 		overlay.clear();
 		sets.clear();
+		history.clear();
 	}
 
 	private void change(BlockPos pos, BlockState state, String cause, int tick) {
 		BlockPos p = pos.immutable();
 		overlay.put(p, state);
+		history.computeIfAbsent(p, k -> new ArrayList<>()).add(new Timed(tick, state));
 		sets.computeIfAbsent(cause, c -> new Pending(tick)).changes
 				.add(new BlockChange<>(new io.github.firestormfmd.scenescripter.core.math.BlockPos(p.getX(), p.getY(), p.getZ()),
 						new SavedBlock(state, null)));
