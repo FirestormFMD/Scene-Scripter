@@ -1,17 +1,11 @@
-# batch 5: remaining actor/editor APIs
-method server/level/ServerLevel.java tickPassenger
-lines world/entity/LightningBolt.java 124 140
-grep world/entity/Entity.java public void setCustomName|public void setCustomNameVisible|public void setDeltaMovement\(|public Vec3 getDeltaMovement|public void setYRot|public void setXRot|public float getYRot\(\)|public float getXRot\(\)|public final AABB getBoundingBox|public final float getBbHeight|public final float getBbWidth|public Level level\(\)|public void refreshDimensions|public final boolean isRemoved|public .*getServer\(\)|public UUID getUUID|public void setUUID
-grep world/entity/ai/attributes/DefaultAttributes.java public static
-grep world/entity/ai/attributes/AttributeSupplier.java public double getValue|public boolean hasAttribute
-grep world/entity/AgeableMob.java public void setBaby|public boolean isBaby|public void setAge
-grep server/level/ServerChunkCache.java public void broadcast|public void broadcastAndSend|public void addTicketWithRadius|public void addTicket|public void removeTicket
-grep network/protocol/game/ClientboundTeleportEntityPacket.java record|public ClientboundTeleportEntityPacket|public static
-grep client/renderer/GameRenderer.java Camera
-grep client/Options.java OptionInstance<Integer> fov|public final KeyMapping key(Up|Down|Left|Right|Jump|Shift|Sprint)
-grep world/entity/LivingEntity.java public float getHealth|public double getAttributeValue|public void setArrowCount|public void setLastHurtByMob|public .*getItemBySlot|public void startUsingItem|public void stopUsingItem
-grep server/MinecraftServer.java public ServerLevel overworld|public .*getAllLevels|public PlayerList getPlayerList|public .*getWorldPath|public .*getLevel\(|public boolean isSingleplayer
-grep world/level/Level.java public <T extends Entity> List<T> getEntitiesOfClass|public List<Entity> getEntities\(
-grep world/level/TicketType.java public static final TicketType
-grep server/level/ServerPlayer.java public ServerGamePacketListenerImpl connection|public ServerLevel level\(\)
-grep world/entity/Entity.java public boolean isAlive|public void setGlowingTag|public void setInvisible|public void setSilent|public void setPose|public void setShiftKeyDown|public void setSwimming
+# batch 6
+grep server/level void broadcast\(|void broadcastAndSend\(|void sendToTrackingPlayers|void broadcastToPlayer
+find TicketType.java
+grep server/level/TicketType.java public static final TicketType
+grep world/entity/Mob.java public void setPersistenceRequired|public void setLeftHanded
+grep world/entity/monster/zombie/Zombie.java public void setBaby
+find Zombie.java
+grep world/entity/LivingEntity.java public void setOnGround|protected void playHurtSound|public void die\(|public void knockback\(|public boolean isDeadOrDying
+grep world/entity/Entity.java public void setSharedFlagOnFire|public boolean startRiding|public void stopRiding|public void setOnGround
+grep world/level/Level.java public boolean isLoaded\(|public BlockState getBlockState\(|public FluidState getFluidState\(|public RegistryAccess registryAccess
+grep world/entity/player/Player.java public Abilities getAbilities|public boolean isCreative
