@@ -67,6 +67,10 @@ public final class EditorState {
 
 	/** Shows the selected numeric channel as a curve instead of rows of keys. */
 	public static boolean curveMode;
+	/** Labels the timeline ruler in seconds instead of ticks. */
+	public static boolean rulerSeconds;
+	/** Shows the panel listing every shortcut (F1). */
+	public static boolean helpOpen;
 	public static io.github.firestormfmd.scenescripter.core.crowd.Formation crowdFormation =
 			io.github.firestormfmd.scenescripter.core.crowd.Formation.GRID;
 	public static int crowdCount = 8;

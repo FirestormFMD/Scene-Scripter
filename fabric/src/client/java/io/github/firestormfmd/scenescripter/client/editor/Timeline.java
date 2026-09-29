@@ -30,6 +30,10 @@ final class Timeline {
 	private int w;
 	private int h;
 	private boolean scrubbing;
+	/** Right-dragging on the ruler marks the work range, which Loop plays and capture records. */
+	private boolean ranging;
+	private int rangeFrom;
+	private int rangeTo;
 	private String dragChannel;
 	private int dragFrom = -1;
 	private int dragTo = -1;
@@ -94,13 +98,29 @@ final class Timeline {
 		ui.fill(trackX(), rulerY, trackW(), RULER, Ui.PANEL_DARK);
 		int span = EditorState.viewEnd - EditorState.viewStart;
 		int step = span > 2400 ? 200 : span > 1200 ? 100 : span > 400 ? 40 : span > 200 ? 20 : 10;
+		if (EditorState.rulerSeconds) {
+			// Whole or half seconds, so the labels stay round.
+			step = Math.max(10, (step + 19) / 20 * 20);
+		}
+		var st = ClientScene.state();
+		int rangeStart = ranging ? Math.min(rangeFrom, rangeTo) : st.loopStart();
+		int rangeEnd = ranging ? Math.max(rangeFrom, rangeTo) : st.loopEnd();
+		if (rangeStart >= 0 && rangeEnd > rangeStart) {
+			int from = Math.max(trackX(), tickToX(rangeStart));
+			int to = Math.min(trackX() + trackW(), tickToX(rangeEnd));
+			if (to > from) {
+				ui.fill(from, rulerY, to - from, RULER, 0x604C8DFF);
+			}
+		}
 		for (int t = (EditorState.viewStart / step) * step; t <= EditorState.viewEnd; t += step) {
 			if (t < EditorState.viewStart) {
 				continue;
 			}
 			int px = tickToX(t);
 			ui.fill(px, rulerY + 9, 1, 5, Ui.TEXT_DIM);
-			ui.text(String.valueOf(t), px + 2, rulerY + 2, Ui.TEXT_DIM);
+			String label = EditorState.rulerSeconds
+					? (t % 20 == 0 ? (t / 20) + "s" : String.format(java.util.Locale.ROOT, "%.1fs", t / 20.0)) : String.valueOf(t);
+			ui.text(label, px + 2, rulerY + 2, Ui.TEXT_DIM);
 		}
 		int endX = tickToX(scene.length());
 		if (endX < trackX() + trackW()) {
@@ -110,6 +130,10 @@ final class Timeline {
 			if (b == 0) {
 				scrubbing = true;
 				seekTo(xToTick(mx));
+			} else if (b == 1) {
+				ranging = true;
+				rangeFrom = Math.max(0, xToTick(mx));
+				rangeTo = rangeFrom;
 			}
 		});
 
@@ -163,6 +187,7 @@ final class Timeline {
 		bx += 6;
 		boolean looping = ClientScene.state().loopStart() >= 0;
 		ui.button(bx, by, 40, 12, "Loop", looping, () -> {
+			// Loop uses the work range (right-drag on the ruler), or the visible part of the timeline.
 			if (looping) {
 				ClientNet.loop(-1, -1);
 			} else {
@@ -177,6 +202,9 @@ final class Timeline {
 			}
 		});
 		bx += 46;
+		ui.button(bx, by, 26, 12, EditorState.rulerSeconds ? "sec" : "tick", false,
+				() -> EditorState.rulerSeconds = !EditorState.rulerSeconds);
+		bx += 28;
 		ui.button(bx, by, 60, 12, "Length...", false, () -> screen.editText(x + 4, y + 3, 80, String.valueOf(scene.length()), v -> {
 			try {
 				int len = Math.max(20, Integer.parseInt(v.trim()));
@@ -540,6 +568,10 @@ final class Timeline {
 			seekTo(xToTick(mx));
 			return true;
 		}
+		if (ranging) {
+			rangeTo = Math.max(0, xToTick(mx));
+			return true;
+		}
 		if (dragChannel != null && button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
 			dragTo = Math.max(0, xToTick(mx));
 			return true;
@@ -571,6 +603,19 @@ final class Timeline {
 		if (scrubbing) {
 			scrubbing = false;
 			lastSeek = -1;
+			return true;
+		}
+		if (ranging) {
+			ranging = false;
+			int from = Math.min(rangeFrom, rangeTo);
+			int to = Math.min(ClientScene.scene().map(Scene::length).orElse(Integer.MAX_VALUE), Math.max(rangeFrom, rangeTo));
+			if (to - from >= 2) {
+				ClientNet.loop(from, to);
+				screen.status("Work range " + from + " to " + to + ": Loop plays it, capture records it, Home and End jump to its ends");
+			} else {
+				ClientNet.loop(-1, -1);
+				screen.status("Work range cleared");
+			}
 			return true;
 		}
 		if (dragChannel != null) {

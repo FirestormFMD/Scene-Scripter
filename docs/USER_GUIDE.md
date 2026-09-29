@@ -31,7 +31,7 @@ Right Ctrl opens and closes the editor (rebind it under Controls). While it is o
 | Space | Play or pause |
 | ← / → | Step one tick |
 | Shift + ← / → | Jump to the previous or next keyframe or event |
-| Home / End | Jump to the start or end |
+| Home / End | Jump to the start or end of the work range, or of the scene (press again) |
 | I | Key the selected actor's position at the playhead |
 | R | Turn the selected actor 45° and key it |
 | F | Frame the selected actor |
@@ -41,13 +41,14 @@ Right Ctrl opens and closes the editor (rebind it under Controls). While it is o
 | Delete | Delete the selection |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 | Ctrl+S | Save |
+| F1 | Show every shortcut |
 
 The screen has four parts:
 
 - **Top bar:** scenes, save and close, undo and redo, the tools (Select, Place, Path, Blocks), **Bounds**, **Record** and **Apply**.
 - **Outliner (left):** the scene track, every object, and every path. Each object has three toggles: **V** hides it, **L** locks it so clicks in the world pass through it, and **S** shows it alone. Hidden objects only disappear while the editor is open, so they are never missing from a recording.
 - **Inspector (right):** everything about the selection. A diamond next to a value keys it at the playhead; clicking the value changes it and keys it.
-- **Timeline (bottom):** play controls, speed, loop, the ruler, and the selected object's lifetime, motion clips, events and keyframes. Drag keys to move them, right-click a key to change its curve, scroll to zoom. Drag a box on empty track space to select several keys, then drag them together, copy them, or delete them. **Curves** shows the selected number channel as a graph with draggable keys and Bézier handles; click a channel's name to select it first.
+- **Timeline (bottom):** play controls, speed, loop, the ruler (**tick**/**sec** switches its labels), and the selected object's lifetime, motion clips, events and keyframes. Right-drag along the ruler to mark a **work range** (shaded blue): **Loop** plays it over and over, Home and End jump to its ends, and capture records only it. A short right-click on the ruler clears it. Drag keys to move them, right-click a key to change its curve, scroll to zoom. Drag a box on empty track space to select several keys, then drag them together, copy them, or delete them. **Curves** shows the selected number channel as a graph with draggable keys and Bézier handles; click a channel's name to select it first.
 
 When the editor is closed, the scene stays visible, frozen at the playhead. Actors can't be pushed, hit, shot, ridden or targeted by anything that isn't part of the scene.
 
@@ -116,7 +117,7 @@ Select an object and use **Capture** in the inspector. The editor closes, you ar
 
 The take is stored with the scene and applied to the object as keyframes. From the take list in the inspector you can re-apply any take as thinned keys, raw keys every tick, or a motion path fitted to your route.
 
-To record only part of a scene, set a loop range on the timeline first; capture then records just that range. **Loop capture** replays the range over and over and turns each pass into a new object, so one person can perform a whole crowd.
+To record only part of a scene, set a work range on the timeline first; capture then records just that range. **Loop capture** replays the range over and over and turns each pass into a new object, so one person can perform a whole crowd.
 
 ## Crowds
 

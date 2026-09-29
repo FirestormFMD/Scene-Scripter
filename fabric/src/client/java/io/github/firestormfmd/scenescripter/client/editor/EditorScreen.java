@@ -168,6 +168,9 @@ public final class EditorScreen extends Screen {
 				palette();
 			}
 		}
+		if (EditorState.helpOpen) {
+			help();
+		}
 		if (statusTicks > 0 && !status.isEmpty()) {
 			int w = ui.width(status) + 10;
 			ui.fill((width - w) / 2, TOP + 6, w, 14, Ui.PANEL_DARK);
@@ -175,6 +178,47 @@ public final class EditorScreen extends Screen {
 		}
 		super.extractRenderState(graphics, mouseX, mouseY, a);
 		ui.end();
+	}
+
+	private static final String[][] SHORTCUTS = {
+			{"Right Ctrl", "Open or close the editor"},
+			{"Hold right mouse", "Fly: WASD, Space/Shift or E/Q, scroll for speed"},
+			{"Left click", "Select; drag arrows to move, the ring to turn"},
+			{"Space", "Play or pause"},
+			{"Left / Right", "Step one tick"},
+			{"Shift + Left / Right", "Previous or next key or event"},
+			{"Home / End", "Start or end (of the work range, then the scene)"},
+			{"Right-drag the ruler", "Set the work range"},
+			{"I", "Key the selected actor's position"},
+			{"R", "Turn the selected actor 45 degrees"},
+			{"F", "Frame the selection"},
+			{"G", "Snap: off, half blocks, block centres"},
+			{"Ctrl+D", "Duplicate the selected object"},
+			{"Ctrl+C / Ctrl+V", "Copy keys / paste at the playhead"},
+			{"Delete", "Delete the selection"},
+			{"Ctrl+Z / Ctrl+Y", "Undo / redo"},
+			{"Ctrl+S", "Save"},
+			{"Path: Enter, Tab, Esc", "Finish, ground or air, cancel"},
+			{"Path point: N, H, Delete", "Insert after, Bezier handles, remove"},
+			{"Blocks: 1, 2, 3, B", "Break, place, use, choose block"},
+			{"F1", "Show or hide this list"},
+	};
+
+	/** The shortcut list, over the middle of the screen. */
+	private void help() {
+		int w = 340;
+		int h = SHORTCUTS.length * 11 + 26;
+		int x = (width - w) / 2;
+		int y = Math.max(TOP + 4, (height - h) / 2);
+		ui.panel(x, y, w, h);
+		ui.text("Shortcuts", x + 6, y + 5, Ui.TEXT);
+		ui.button(x + w - 16, y + 3, 13, 12, "x", false, () -> EditorState.helpOpen = false);
+		int row = y + 20;
+		for (String[] s : SHORTCUTS) {
+			ui.text(s[0], x + 6, row, Ui.TEXT);
+			ui.text(ui.fit(s[1], w - 140), x + 132, row, Ui.TEXT_DIM);
+			row += 11;
+		}
 	}
 
 	private void topBar(@Nullable Scene scene) {
@@ -231,7 +275,7 @@ public final class EditorScreen extends Screen {
 				}
 			});
 		}
-		String help = "RMB: fly  Space: play  I: key  Del: delete  Ctrl+Z/Y  Right Ctrl: close";
+		String help = "F1: all keys  RMB: fly  Space: play  I: key  Del: delete  Ctrl+Z/Y  Right Ctrl: close";
 		ui.text(ui.fit(help, Math.max(0, width - x - 60)), Math.max(x + 50, width - ui.width(help) - 6), 6, Ui.TEXT_DIM);
 	}
 
@@ -441,6 +485,10 @@ public final class EditorScreen extends Screen {
 			onClose();
 			return true;
 		}
+		if (key == GLFW.GLFW_KEY_F1) {
+			EditorState.helpOpen = !EditorState.helpOpen;
+			return true;
+		}
 		boolean ctrl = (event.modifiers() & GLFW.GLFW_MOD_CONTROL) != 0;
 		Scene scene = ClientScene.scene().orElse(null);
 		if (ctrl && key == GLFW.GLFW_KEY_Z) {
@@ -492,12 +540,15 @@ public final class EditorScreen extends Screen {
 				frameSelection();
 				return true;
 			}
+			// Home and End go to the ends of the work range when one is set, else of the scene.
+			var st = ClientScene.state();
+			boolean ranged = st.loopStart() >= 0 && st.loopEnd() > st.loopStart();
 			if (key == GLFW.GLFW_KEY_HOME) {
-				ClientNet.seek(0);
+				ClientNet.seek(ranged && ClientScene.tick() != st.loopStart() ? st.loopStart() : 0);
 				return true;
 			}
 			if (key == GLFW.GLFW_KEY_END) {
-				ClientNet.seek(scene.length());
+				ClientNet.seek(ranged && ClientScene.tick() != st.loopEnd() ? st.loopEnd() : scene.length());
 				return true;
 			}
 			if (key == GLFW.GLFW_KEY_I) {
