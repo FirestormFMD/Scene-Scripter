@@ -120,6 +120,20 @@ public final class SceneManager {
 		return scene;
 	}
 
+	/** Creates and opens the example scene around a position. */
+	public Scene createTutorial(String rawName, ServerLevel level, net.minecraft.core.BlockPos at) throws IOException {
+		String base = SceneStorage.cleanName(rawName).orElse("tutorial");
+		String name = base;
+		for (int i = 2; storage.exists(name); i++) {
+			name = base + "_" + i;
+		}
+		Scene scene = io.github.firestormfmd.scenescripter.core.scene.TutorialScene.build(name,
+				new BlockPos(at.getX(), at.getY(), at.getZ()));
+		storage.save(name, scene);
+		openScene(name, scene, level);
+		return scene;
+	}
+
 	/**
 	 * Imports a shared scene file from the exports folder under a free name and opens it.
 	 *

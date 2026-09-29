@@ -636,6 +636,32 @@ final class Inspector {
 		row("Add", "jump / wait / gait at %...", false, () -> editAt(addY, "jump 50", v -> addMarker(p, v)), null);
 		label("e.g. \"jump 50\", \"wait 25 40\", \"gait 60 sprint\"");
 
+		heading("Speed keys");
+		for (var k : p.speedKeys()) {
+			row(Math.round(k.at() * 100) + "%", String.format(Locale.ROOT, "%.2f blocks/s  (remove)", k.speed()), false,
+					() -> changePath(p, "Remove speed key", c -> {
+						List<io.github.firestormfmd.scenescripter.core.scene.SpeedKey> ks = new java.util.ArrayList<>(c.speedKeys());
+						ks.remove(k);
+						c.setSpeedKeys(ks);
+					}), null);
+		}
+		int speedY = rowY;
+		row("Add", "speed at %...", false, () -> editAt(speedY, "50 5.6", v -> {
+			String[] parts = v.trim().split("\\s+");
+			try {
+				var key = new io.github.firestormfmd.scenescripter.core.scene.SpeedKey(
+						Math.clamp(Double.parseDouble(parts[0]) / 100.0, 0, 1), Double.parseDouble(parts[1]));
+				changePath(p, "Add speed key", c -> {
+					List<io.github.firestormfmd.scenescripter.core.scene.SpeedKey> ks = new java.util.ArrayList<>(c.speedKeys());
+					ks.add(key);
+					c.setSpeedKeys(ks);
+				});
+			} catch (RuntimeException e) {
+				screen.status("Try \"50 5.6\": 5.6 blocks per second halfway along");
+			}
+		}), null);
+		label("Speed changes smoothly between keys.");
+
 		heading("Use");
 		for (SceneObject o : scene.objects()) {
 			if (!visible()) {

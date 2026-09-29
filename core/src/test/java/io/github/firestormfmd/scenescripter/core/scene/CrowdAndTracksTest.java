@@ -115,4 +115,18 @@ class CrowdAndTracksTest {
 		assertEquals(new Vec3(100, 70, -50), p.points().getFirst().pos());
 		assertEquals(new io.github.firestormfmd.scenescripter.core.math.BlockPos(100, 70, -50), scene.origin());
 	}
+
+	@Test
+	void theTutorialSceneSolvesAndSaves() throws Exception {
+		Scene scene = TutorialScene.build("tutorial", new io.github.firestormfmd.scenescripter.core.math.BlockPos(0, 64, 0));
+		SceneEvaluator eval = new SceneEvaluator(scene, null, BodyProvider.PLAYER_SIZED);
+		var solution = new io.github.firestormfmd.scenescripter.core.solve.Solver(
+				io.github.firestormfmd.scenescripter.core.solve.CombatModel.DEFAULT).solve(scene, eval,
+				io.github.firestormfmd.scenescripter.core.solve.BlockWorld.EMPTY);
+		assertEquals(1, solution.explosions().size());
+		assertTrue(scene.object("e80:projectile").isPresent(), "the archer's arrow flies");
+		Scene back = SceneCodec.fromJson(SceneCodec.toJson(scene));
+		assertEquals(scene.objects().size(), back.objects().size());
+		assertEquals(2, back.tracks().events().size());
+	}
 }

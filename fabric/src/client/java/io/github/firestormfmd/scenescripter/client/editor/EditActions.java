@@ -128,4 +128,15 @@ public final class EditActions {
 		change.accept(copy);
 		ClientNet.edit(new Edits.ReplaceObject(copy, label));
 	}
+
+	/** Copies an object one and a half blocks to its right, with everything it does, in one undoable step. */
+	public static void duplicate(Scene scene, SceneObject o) {
+		String id = freshId(scene, "o");
+		var copies = io.github.firestormfmd.scenescripter.core.crowd.CrowdBuilder.build(o,
+				io.github.firestormfmd.scenescripter.core.crowd.Formation.LINE, 1, 1.5, i -> id, 0, 0, 1);
+		SceneObject copy = copies.getFirst().copyAs(id, o.name() + " copy");
+		copy.setGroup(o.group());
+		ClientNet.edit(new Edits.AddObject(copy, scene.indexOfObject(o.id()) + 1));
+		EditorState.selectObject(id);
+	}
 }

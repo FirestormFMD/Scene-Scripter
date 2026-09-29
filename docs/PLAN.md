@@ -1,6 +1,6 @@
 # Scene Scripter: Project Plan
 
-> Status: planning. No code yet.
+> Status: Phases 0 to 6 implemented (see section 1b). Manual recording checks with Flashback and Replay Mod, the 26.3 port and a public release remain.
 > Target: Fabric, Minecraft 26.2, singleplayer first.
 
 Scene Scripter is an in-game animation tool for Minecraft cinematics. You stage mobs, players, TNT and other entities, then animate them on a timeline so they walk, jump, fight, explode and die on cue. It covers shots that would otherwise need hand animation in Blender or Maya, or dozens of real players acting in sync.
@@ -13,12 +13,36 @@ It is **not** a recorder or a camera tool. Scenes play back live in the world, a
 
 | Topic | Decision | Reason |
 |---|---|---|
-| Mod loader | Fabric | Flashback and Axiom are Fabric-only and both use Dear ImGui, the UI approach this editor will use. Replay Mod's current builds are Fabric. |
+| Mod loader | Fabric | Flashback and Axiom are Fabric-only, and Replay Mod's current builds are Fabric. |
+| Editor UI | Vanilla GUI: a full-screen `Screen` with an immediate-mode helper and fixed panels, and the in-world overlay drawn with vanilla gizmos. Replaces the earlier Dear ImGui plan. | Flashback and Axiom both bundle imgui-java, so our own copy risked version clashes (the Phase 0 ImGui spike). Vanilla GUI has no native libraries or shared state, runs next to both, and the overlay never reaches recordings. |
 | Minecraft version | 26.2 first. Port to 26.3 once Flashback and Replay Mod support it. | 26.2 is the newest version both recorders support today. |
 | Multiplayer | Singleplayer first, with a client/server split from day one so dedicated servers and shared editing can be added later without a rewrite. | Keeps v1 focused without closing the door. |
 | Objects outside the editor | Objects stay visible when the editor is closed, frozen at the playhead's state. They have no collision and don't interact with anything that wasn't set up in the editor (see 5.4). | Chosen during planning. The scene stays on screen as set dressing but can't be disturbed. |
 | Added to scope | Performance capture (act a part out live and record it as keyframes). | Chosen during planning. |
 | Out of scope for v1 | Per-limb posing, built-in camera tracks, modded mobs as objects, NeoForge. | Chosen during planning. Can be revisited after 1.0. |
+
+## 1b. Status
+
+What is built, how it is checked, and what is still open. Unit tests cover the core library (134 tests); Fabric server game tests and a client game test run on every push in CI.
+
+| Phase | Built | Checked by |
+|---|---|---|
+| 0: Foundations | Gradle multi-project (`core` without Minecraft, `fabric` mod), CI build, inspect-sources workflow for reading game code. Spikes: ImGui avoided by the vanilla-GUI decision; block journal (apply, revert, chest contents, crash recovery); Mannequin skins by username, equipment, sneaking. | Game tests `journalRestoresBlocksAndChestContents`, `crashRecoveryUndoesLeftoverChanges`, `playerObjectsAreMannequins` |
+| 1: Editor and static scenes | Right Ctrl editor with top bar, outliner, inspector and timeline; fly camera; picking and dragging actors; scenes saved as JSON with backups; edit ops with undo and redo sent to the server; every vanilla mob, Mannequins and TNT as objects; channels and keyframes with all interpolation modes; playback, scrubbing, speeds, loop range; actors frozen, never saved, and untouchable when the editor is closed. | Client game test (editor opens and closes on a real client); game tests `actorsAreFrozenAndNeverSaved`, `playbackFollowsKeyframes`, `deathThenRevive`, `removedObjectsLoseTheirActor`; unit tests for channels, edits and the codec |
+| 2: Motion paths | Ground and air paths drawn in the world; ground snapping with the ground filter; stepping, jumping and falling with vanilla physics; speed keys, timing modes, gaits, wait, jump and gait markers, lateral offsets; path problems shown in red; onion-skin ghosts; step sounds, idle sounds and sprint particles. Water paths are left for later (see Later). | Locomotion unit tests; game test `groundPathsJumpOntoRealBlocks` |
+| 3: Events and the solver | Attack, hurt, die, revive, swing, use item and equipment channels; health; three-level interaction rules edited in the inspector (scene and object), groups and friendly fire; the solver with generated, detachable results and baked knockback; hit and miss previews; hit cooldown; mob-specific channels (aggressive, left-handed, sheared, wool color, sitting, carried block); the curve editor. | Solver unit tests; game tests `autoAttacksUseRealAttributes`, `wallsBlockAttacks` |
+| 4: Explosions, projectiles, world changes | TNT, creepers, end crystals and fireballs; the vanilla explosion ray algorithm with seeds, protect masks, block preview and chain reactions; exposure-based damage and throws; projectiles with vanilla drag and gravity, aiming and target leading; place, break and use block events; riding; scene bounds that keep chunks loaded; Apply to world. | Explosion, ballistics and world-solver unit tests; game tests `explosionsRewindCompletely`, `blockEventsPlayAndRewind`, `arrowsFlyAndHit` |
+| 5: Performance capture | Possessing an object with countdown and pre-roll, invulnerability, swings, hits and block interactions recorded as events, takes stored next to the scene, punch-in over a loop range, loop capture into new objects, conversion to thinned keys, raw keys or a fitted motion path. | Capture unit tests (simplification, conversion, path fitting, storage) |
+| 6: Production polish | Scene track (time of day, weather, sounds, commands with undo, markers); Record and `/scene record`, `/scene run`, `/scene reset`; crowd formations; import with relocation; the tutorial scene; a 200-actor benchmark (under a millisecond per tick to evaluate); user guide. | Game test `sceneTracksDriveTimeWeatherAndCommands`; unit tests for tracks, crowds, relocation, the tutorial scene and the benchmark |
+
+**Open items**
+
+- **Recording fidelity (Phase 0 spike 3 and the per-release manual check).** Recording a scene with Flashback and with Replay Mod, and opening the recordings with and without Scene Scripter, needs the recorders and a person watching; it can't run in CI. Actors only use vanilla packets, which is what should make this work.
+- **Mannequin audit, remaining items.** Bow draws and eating now use the item-use channel and sleeping uses the pose channel, but how each looks on a Mannequin still needs a visual check. The fake-`ServerPlayer` fallback has not been needed so far.
+- **Skins from a local PNG** (5.5) are not built yet; skins come from usernames.
+- **Editor extras from 6.1** not built: visibility, lock and solo toggles in the outliner, box-selecting and copy-pasting keys, and snapping gizmos (actors are moved by dragging and turned with R).
+- **Port to 26.3** waits for the recorders to support it, and the **1.0 release on Modrinth** is a publishing step outside the code.
+- Everything under **Later** below.
 
 ## 2. Goals and non-goals
 
@@ -69,7 +93,7 @@ This is how a typical battle shot would be made, to check the plan against what 
 ```
  CLIENT (editor)                            SERVER (integrated server in singleplayer)
  ┌────────────────────────────┐  edit ops   ┌───────────────────────────────────────┐
- │ ImGui panels               │ ──────────▶ │ SceneManager (authoritative scenes)    │
+ │ Editor screen (vanilla GUI) │ ──────────▶ │ SceneManager (authoritative scenes)    │
  │ Tools: place, path, event, │             │   ├─ Solver → generated keys, diffs    │
  │        capture             │ ◀────────── │   ├─ PlaybackClock / SeekEngine        │
  │ Viewport overlays, gizmos  │ scene state │   ├─ ActorController → vanilla entities│
@@ -89,7 +113,7 @@ The server drives real vanilla entities and makes real block changes every tick.
 Even in singleplayer the world lives on the integrated server thread, so the split is needed anyway:
 
 - **Server:** owns scene data, runs the solver, ticks playback, spawns and drives actors, and applies and reverts block changes.
-- **Client:** runs the ImGui editor, tools, overlays and input. It never changes the world directly.
+- **Client:** runs the editor screen, tools, overlays and input. It never changes the world directly.
 - **Edit-op protocol:** every edit is a small serializable operation (`AddObject`, `MoveKeyframe`, `InsertPathPoint`, and so on). It is sent to the server as a custom payload, applied there, and echoed back. Undo and redo work as a stack of inverse ops. Multiplayer co-editing later only needs permissions and locking on top.
 - Editor payloads flow only while the editor is open. Recordings don't depend on them.
 
@@ -166,7 +190,7 @@ Some vanilla visuals are computed on the client from motion or timers and are ne
 
 - **Toggle:** Right Ctrl, rebindable in Controls. Opening the editor frees the mouse and shows the panels over the live world. Closing it returns to normal play and keeps the playhead where it was. Objects stay visible but can't be touched (5.4).
 - **While editing:** the player flies, can't be hurt, and gameplay input is blocked.
-- **UI:** Dear ImGui through imgui-java, with a docking layout similar to Axiom.
+- **UI:** a vanilla full-screen GUI with fixed panels (see section 1 for why not Dear ImGui).
 - **Camera:** hold the right mouse button to fly (WASD, Space and Shift for up and down, scroll for speed). Press F to frame the selection.
 - **Panels:**
   - *Menu bar:* File (new, open, save, import, export), Edit (undo, redo, preferences), View, Playback, Help.
@@ -429,34 +453,39 @@ Path marker positions (`at`) are fractions of path length, so they stay put when
 ## 8. Code layout
 
 ```
-src/main/java/io/github/firestormfmd/scenescripter/
-  SceneScripter.java          entrypoint and registration
-  scene/                      model: Scene, SceneObject, Channel, Keyframe, MotionPath, Event, Rules
-  scene/io/                   JSON codecs, schema migrations, import and export
-  solve/                      Solver, VirtualWorld, ShadowEntities, InteractionResolver, ExplosionBaker
-  path/                       spline math, GroundProjector, GroundFilter, Locomotion
-  playback/                   PlaybackClock, SeekEngine, pre-roll
-  actor/                      ActorController, actor flag, capability descriptors
-  world/                      BlockJournal, SceneBounds, chunk tickets
-  capture/                    server side of performance capture
-  net/                        payloads, edit ops, undo stack
-  command/                    /scene
-  mixin/                      actor autonomy, tracking range, not saving actors, journal hooks
-src/client/java/io/github/firestormfmd/scenescripter/client/
-  editor/                     EditorMode, ImGui setup, docking layout
-  editor/panel/               Outliner, Inspector, Timeline, CurveEditor, Palette, ToolSettings
-  tool/                       Select, Transform, PlaceObject, DrawPath, EditPath, AddEvent, Capture, Bounds
-  render/                     path, gizmo, ghost and overlay rendering
-  preview/                    scrub-time visual overrides
-src/main/resources/
-  fabric.mod.json, scenescripter.mixins.json
-  data/scenescripter/capabilities/*.json    per-mob capability descriptors
-  assets/scenescripter/lang/en_us.json
-src/test/java/                unit tests
-src/gametest/java/            Fabric GameTests
+core/src/main/java/io/github/firestormfmd/scenescripter/core/   plain Java, no Minecraft classes, unit tested
+  math/        Vec3, BlockPos, BlockBox, Bezier splines
+  anim/        Channel, Keyframe, Interpolation, Handles, ValueType
+  scene/       Scene, SceneObject, the scene track, MotionPath and clips, events, rules, settings,
+               SceneTransform (relocation), TutorialScene
+  edit/        EditOp, Edits, UndoStack
+  io/          SceneCodec, EditOpCodec, migrations
+  path/        TerrainView, ground probing, jump physics, LocomotionPlanner
+  journal/     BlockJournal (write-ahead, reversible block changes)
+  runtime/     SceneEvaluator, PlaybackClock, ObjectState, EventWindow
+  solve/       Solver, CombatModel, VanillaCombat, Explosions, Ballistics, BlockWorld
+  capture/     CaptureSample, Take, Rdp, TakeConverter, TakeCodec
+  crowd/       Formation, CrowdBuilder
+fabric/src/main/java/io/github/firestormfmd/scenescripter/
+  SceneScripter.java   entrypoint, callbacks, payload receivers
+  actor/       Actors (the actor flag, tracking range, scene actions), Capabilities (mob-specific channels)
+  server/      SceneManager, SceneSession, SceneStorage, ActorController, ActorApplier, EventPlayer,
+               VirtualWorld, WorldBlocks, JournalFile, LevelTerrain, WorldCombat, WorldTracks, CaptureSession
+  net/         payloads and chunked transfers
+  command/     /scene
+  mixin/       actor autonomy, collisions, tracking, not saving actors, arrows, swing capture
+fabric/src/client/java/io/github/firestormfmd/scenescripter/client/
+  editor/      EditorMode, EditorScreen, Ui, EditorCamera, Picking, Outliner, Inspector, Timeline (with the
+               curve editor), Viewport (tools), EventTools, EditActions
+  render/      EditorOverlay (paths, ghosts, hit lines, blast previews, bounds)
+  net/         ClientNet
+fabric/src/gametest/   Fabric server game tests and the client game test
+tools/inspect/         the inspect-sources workflow's queries
 ```
 
-**Build:** the non-remapping `net.fabricmc.fabric-loom` Gradle plugin (26.x is unobfuscated, so the project uses Mojang's names directly without Yarn), Java 25, Gradle 9, Fabric API, and split `main`/`client` source sets. imgui-java is bundled (see the ImGui risk in section 10). The scene model and solver avoid Minecraft classes where possible, which keeps them unit-testable and cheaper to port.
+**Build:** the non-remapping `net.fabricmc.fabric-loom` Gradle plugin (26.x is unobfuscated, so the project uses Mojang's names directly without Yarn), Java 25, Gradle 9, Fabric API, and split `main`/`client` source sets plus a `gametest` source set. The `core` module is packaged inside the mod jar. The scene model and solver avoid Minecraft classes, which keeps them unit-testable and cheaper to port.
+
+**26.2 notes found while building:** day time is a world clock (`ServerClockManager` with the dimension's default clock) rather than a day-time setter; weather is set on the server with `setWeatherParameters`; the `forced` chunk ticket persists with the world, so scene bounds use a ticket type of their own that is never saved.
 
 ## 9. Roadmap
 
@@ -466,7 +495,7 @@ Each phase ends with something usable and has a concrete exit test.
 
 - Gradle and Loom project for 26.2, a GitHub Actions build, and a mod that loads.
 - Four spikes, each answering a risk. If one fails, stop and rethink that part before going on.
-  1. **ImGui coexistence:** the ImGui layer runs with Flashback and Axiom installed.
+  1. **ImGui coexistence:** the ImGui layer runs with Flashback and Axiom installed. (Settled instead by building the editor with vanilla GUI; see section 1.)
   2. **Mannequin audit:** skins by name and by file, equipment, swing, hurt, death, bow draw, eating, riding, sneaking, sleeping. For each, does it work through vanilla packets?
   3. **Recording fidelity:** drive a zombie and a Mannequin along a line with a swing, a hurt, a death and a revive. Record in Flashback and in Replay Mod, then open both recordings with and without Scene Scripter installed.
   4. **Block journal:** apply and revert an explosion diff, confirm the world matches afterwards (chunk hash), and recover correctly after a forced crash.
@@ -536,7 +565,7 @@ Each phase ends with something usable and has a concrete exit test.
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| ImGui conflicts with Flashback or Axiom (all bundle imgui-java) | The editor can't run next to the recorder | Phase 0 spike. Share one ImGui library or relocate ours. Last resort: a vanilla-Screen UI. |
+| ImGui conflicts with Flashback or Axiom (all bundle imgui-java) | The editor can't run next to the recorder | Resolved: the editor uses vanilla GUI, so there is nothing to conflict with. |
 | Mannequin lacks some player animations | Player objects look wrong for some actions | Phase 0 audit. Fall back to a fake `ServerPlayer` for those cases. |
 | Editor scrubbing looks different from recorded playback | The preview doesn't match the render | Linear playback in the editor uses the same vanilla path as recording. Overrides apply only to seeks. The per-release manual check compares them. |
 | A crash mid-scene leaves the world damaged | Lost builds | Write-ahead journal, restore on load, and a backup before the first block event. |

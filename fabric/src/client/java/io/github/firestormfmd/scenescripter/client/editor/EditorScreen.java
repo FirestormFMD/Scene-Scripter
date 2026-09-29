@@ -235,6 +235,47 @@ public final class EditorScreen extends Screen {
 		ui.text(ui.fit(help, Math.max(0, width - x - 60)), Math.max(x + 50, width - ui.width(help) - 6), 6, Ui.TEXT_DIM);
 	}
 
+	/** The previous or next keyframe or event tick of the selection (or of the whole scene), for Shift+arrows. */
+	private static int nextKeyTick(Scene scene, boolean back) {
+		int now = ClientScene.tick();
+		int best = back ? 0 : scene.length();
+		java.util.List<io.github.firestormfmd.scenescripter.core.scene.SceneObject> owners = new java.util.ArrayList<>();
+		ClientScene.object(EditorState.selectedObject).ifPresentOrElse(owners::add, () -> owners.addAll(scene.objects()));
+		for (var o : owners) {
+			for (var ch : o.channels().values()) {
+				for (var k : ch.keys()) {
+					if (back ? k.tick() < now && k.tick() > best : k.tick() > now && k.tick() < best) {
+						best = k.tick();
+					}
+				}
+			}
+			for (var e : o.events()) {
+				if (back ? e.tick() < now && e.tick() > best : e.tick() > now && e.tick() < best) {
+					best = e.tick();
+				}
+			}
+		}
+		return best;
+	}
+
+	/** Moves the editor camera to look at the selected actor from a few blocks away. */
+	private void frameSelection() {
+		var player = net.minecraft.client.Minecraft.getInstance().player;
+		var target = EditorState.selectedObject == null ? null : ClientScene.actor(EditorState.selectedObject).orElse(null);
+		if (player == null || target == null) {
+			status("Select an actor to frame it");
+			return;
+		}
+		var center = target.position().add(0, target.getBbHeight() / 2, 0);
+		var look = player.getLookAngle();
+		double distance = Math.max(4, target.getBbHeight() * 3);
+		var eye = center.subtract(look.scale(distance));
+		var d = center.subtract(eye);
+		float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+		player.snapTo(eye.x, eye.y - player.getEyeHeight(), eye.z, yaw, pitch);
+	}
+
 	void setTool(EditorState.Tool tool) {
 		EditorState.tool = tool;
 		confirmApply = false;
@@ -421,8 +462,23 @@ public final class EditorScreen extends Screen {
 				return true;
 			}
 			if (key == GLFW.GLFW_KEY_LEFT || key == GLFW.GLFW_KEY_RIGHT) {
-				int step = (event.modifiers() & GLFW.GLFW_MOD_SHIFT) != 0 ? 20 : 1;
-				ClientNet.seek(Math.max(0, ClientScene.tick() + (key == GLFW.GLFW_KEY_LEFT ? -step : step)));
+				boolean back = key == GLFW.GLFW_KEY_LEFT;
+				if ((event.modifiers() & GLFW.GLFW_MOD_SHIFT) != 0) {
+					ClientNet.seek(nextKeyTick(scene, back));
+				} else {
+					ClientNet.seek(Math.max(0, ClientScene.tick() + (back ? -1 : 1)));
+				}
+				return true;
+			}
+			if (ctrl && key == GLFW.GLFW_KEY_D) {
+				ClientScene.object(EditorState.selectedObject).filter(o -> !Scene.isTracks(o)).ifPresent(o -> {
+					EditActions.duplicate(scene, o);
+					status("Duplicated " + o.name());
+				});
+				return true;
+			}
+			if (key == GLFW.GLFW_KEY_F) {
+				frameSelection();
 				return true;
 			}
 			if (key == GLFW.GLFW_KEY_HOME) {

@@ -102,6 +102,10 @@ public final class SceneCommands {
 					Path out = SceneManager.get().orElseThrow().storage().export(s.name(), s.scene());
 					return "Exported to " + out;
 				})))
+				.then(literal("tutorial")
+						.executes(ctx -> tutorial(ctx, "tutorial"))
+						.then(argument("name", StringArgumentType.word())
+								.executes(ctx -> tutorial(ctx, StringArgumentType.getString(ctx, "name")))))
 				.then(literal("record")
 						.executes(ctx -> withSession(ctx, s -> {
 							s.playForRecording(40);
@@ -221,6 +225,14 @@ public final class SceneCommands {
 			throw new IOException("Only a player can do that");
 		}
 		return p;
+	}
+
+	private static int tutorial(CommandContext<CommandSourceStack> ctx, String name) {
+		return run(ctx, m -> {
+			Scene scene = m.createTutorial(name, ctx.getSource().getLevel(),
+					net.minecraft.core.BlockPos.containing(ctx.getSource().getPosition()));
+			return "Created " + scene.name() + " here. Open the editor (Right Ctrl) and press Play; the knight charges north";
+		});
 	}
 
 	/** Starts performing an object from the playhead, after a pre-roll of the scene. */
