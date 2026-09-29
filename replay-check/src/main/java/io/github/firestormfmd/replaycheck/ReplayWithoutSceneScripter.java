@@ -103,14 +103,27 @@ public class ReplayWithoutSceneScripter implements FabricClientGameTest {
 				throw new AssertionError("Flashback could not open the recording", e);
 			}
 		});
+		// Flashback opens a replay paused at its start: press play once it has loaded, as a viewer would.
 		boolean started = false;
 		for (int wait = 0; wait < 12 && !started; wait++) {
 			context.waitTicks(100);
+			int tick = context.computeOnClient(client -> {
+				try {
+					Object server = Class.forName("com.moulberry.flashback.Flashback").getMethod("getReplayServer").invoke(null);
+					if (server == null) {
+						return -1;
+					}
+					server.getClass().getField("replayPaused").setBoolean(server, false);
+					return (int) server.getClass().getMethod("getReplayTick").invoke(server);
+				} catch (ReflectiveOperationException e) {
+					throw new AssertionError("Flashback's replay could not be played", e);
+				}
+			});
 			started = context.computeOnClient(client -> client.level != null && actors(client) > 0);
 			String screen = context.computeOnClient(client -> client.gui.screen() == null ? "none"
 					: client.gui.screen().getClass().getName() + " \"" + client.gui.screen().getTitle().getString() + "\"");
 			System.out.println("Replay after " + (wait + 1) * 5 + " s: level " + context.computeOnClient(client -> client.level != null)
-					+ ", screen " + screen);
+					+ ", replay tick " + tick + ", screen " + screen);
 		}
 		if (!started) {
 			printThumbnail(context.takeScreenshot("replay-without-scene-scripter-stuck"));

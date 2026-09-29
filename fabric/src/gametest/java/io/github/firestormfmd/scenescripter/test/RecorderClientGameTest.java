@@ -42,11 +42,13 @@ public class RecorderClientGameTest implements FabricClientGameTest {
 		List<Path> flashbackBefore = flashback ? files(flashbackReplays) : List.of();
 		try (TestSingleplayerContext singleplayer = context.worldBuilder().create()) {
 			singleplayer.getConnection().waitForChunksRender();
-			if (flashback) {
-				context.runOnClient(client -> startFlashback());
-			}
 			singleplayer.getServer().runCommand("gamemode creative @a");
 			singleplayer.getServer().runCommand("scene tutorial recorded");
+			if (flashback) {
+				// Staged first, then recorded, the way the guide has it.
+				context.waitTicks(5);
+				context.runOnClient(client -> startFlashback());
+			}
 			singleplayer.getServer().runCommand("scene play");
 			context.waitTicks(100);
 			Screenshots.printThumbnail(context.takeScreenshot("scenescripter-with-" + recorder), "with-" + recorder);
@@ -173,7 +175,31 @@ public class RecorderClientGameTest implements FabricClientGameTest {
 				throw new AssertionError("Flashback could not open the recording", e);
 			}
 		});
-		context.waitFor(client -> client.level != null && replayed(client) > 0, 20 * 60);
+		// Flashback opens a replay paused at its start: press play once it has loaded, as a viewer would.
+		boolean started = false;
+		for (int wait = 0; wait < 12 && !started; wait++) {
+			context.waitTicks(100);
+			String state = context.computeOnClient(client -> {
+				Object server = flashback("getReplayServer");
+				int tick = -1;
+				if (server != null) {
+					try {
+						server.getClass().getField("replayPaused").setBoolean(server, false);
+						tick = (int) server.getClass().getMethod("getReplayTick").invoke(server);
+					} catch (ReflectiveOperationException e) {
+						throw new AssertionError("Flashback's replay could not be played", e);
+					}
+				}
+				return "level " + (client.level != null) + ", replay tick " + tick + ", entities " + entityCounts(client)
+						+ ", screen " + (client.gui.screen() == null ? "none" : client.gui.screen().getClass().getName());
+			});
+			started = context.computeOnClient(client -> client.level != null && replayed(client) > 0);
+			System.out.println("Flashback replay after " + (wait + 1) * 5 + " s: " + state);
+		}
+		if (!started) {
+			Screenshots.printThumbnail(context.takeScreenshot("scenescripter-flashback-stuck"), "flashback-stuck");
+			throw new AssertionError("The scene's actors never showed up in Flashback's replay");
+		}
 		context.waitTicks(40);
 		int actors = context.computeOnClient(RecorderClientGameTest::replayed);
 		System.out.println("Flashback played the recording back with " + actors + " scene actors in view");
@@ -227,6 +253,17 @@ public class RecorderClientGameTest implements FabricClientGameTest {
 			}
 		}
 		return count;
+	}
+
+	/** How many entities of each kind the client has, for the log. */
+	private static java.util.Map<String, Integer> entityCounts(net.minecraft.client.Minecraft client) {
+		java.util.Map<String, Integer> counts = new java.util.TreeMap<>();
+		if (client.level != null) {
+			for (net.minecraft.world.entity.Entity e : client.level.entitiesForRendering()) {
+				counts.merge(e.getClass().getSimpleName(), 1, Integer::sum);
+			}
+		}
+		return counts;
 	}
 
 	private static long modified(Path p) {
