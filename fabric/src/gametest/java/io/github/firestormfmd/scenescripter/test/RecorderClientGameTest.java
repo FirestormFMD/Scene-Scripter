@@ -66,7 +66,8 @@ public class RecorderClientGameTest implements FabricClientGameTest {
 				for (Path p : now) {
 					System.out.println("  " + recordings.relativize(p) + " " + size(p) + " bytes");
 				}
-				found = now.stream().filter(p -> !before.contains(p) && size(p) > 10_000).findFirst().orElse(null);
+				found = now.stream().filter(p -> !before.contains(p) && size(p) > 10_000)
+						.max(java.util.Comparator.comparingLong(RecorderClientGameTest::modified)).orElse(null);
 			}
 			if (found == null) {
 				throw new AssertionError("Replay Mod saved no recording under " + recordings);
@@ -82,7 +83,67 @@ public class RecorderClientGameTest implements FabricClientGameTest {
 				} catch (IOException e) {
 					throw new UncheckedIOException(e);
 				}
+				playBack(context, found);
 			}
+		}
+	}
+
+	/**
+	 * Opens the recording in Replay Mod's viewer and waits for the scene's actors to show up in the replayed world,
+	 * the way someone would check a recording by eye. Replay Mod has no public API, so its viewer is reached by
+	 * reflection; the scene's own mod is not needed for the actors to appear, since they are plain vanilla entities.
+	 */
+	private static void playBack(ClientGameTestContext context, Path replay) {
+		context.runOnClient(client -> replayMod("startReplay", replay.toFile()));
+		context.waitFor(client -> client.level != null && replayed(client) > 0, 20 * 60);
+		context.waitTicks(40);
+		int actors = context.computeOnClient(RecorderClientGameTest::replayed);
+		System.out.println("Replay Mod played the recording back with " + actors + " scene actors in view");
+		Screenshots.printThumbnail(context.takeScreenshot("scenescripter-replay-playback"), "replay-playback");
+		context.runOnClient(client -> {
+			Object handler = replayMod("getReplayHandler", null);
+			if (handler != null) {
+				try {
+					handler.getClass().getMethod("endReplay").invoke(handler);
+				} catch (ReflectiveOperationException e) {
+					throw new AssertionError("Could not end the replay", e);
+				}
+			}
+		});
+		context.waitFor(client -> client.level == null, 20 * 30);
+	}
+
+	/** Calls a method of Replay Mod's replay module, with one file argument or none. */
+	private static Object replayMod(String method, java.io.File file) {
+		try {
+			Class<?> mod = Class.forName("com.replaymod.replay.ReplayModReplay");
+			Object instance = mod.getField("instance").get(null);
+			return file == null ? mod.getMethod(method).invoke(instance)
+					: mod.getMethod(method, java.io.File.class).invoke(instance, file);
+		} catch (ReflectiveOperationException e) {
+			throw new AssertionError("Replay Mod's viewer could not be reached (" + method + ")", e);
+		}
+	}
+
+	/** Mannequins and zombies in the replayed world: the tutorial's knight and the zombie he fights. */
+	private static int replayed(net.minecraft.client.Minecraft client) {
+		int count = 0;
+		if (client.level != null) {
+			for (net.minecraft.world.entity.Entity e : client.level.entitiesForRendering()) {
+				if (e instanceof net.minecraft.world.entity.decoration.Mannequin
+						|| e instanceof net.minecraft.world.entity.monster.zombie.Zombie) {
+					count++;
+				}
+			}
+		}
+		return count;
+	}
+
+	private static long modified(Path p) {
+		try {
+			return Files.getLastModifiedTime(p).toMillis();
+		} catch (IOException e) {
+			return 0;
 		}
 	}
 

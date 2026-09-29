@@ -33,6 +33,9 @@ public class EditorClientGameTest implements FabricClientGameTest {
 					&& client.gui.screen().getClass().getSimpleName().equals("EditorScreen"), 100);
 			context.waitTicks(5);
 			Path open = context.takeScreenshot("scenescripter-editor-open");
+			int[] gui = context.computeOnClient(client -> new int[] {client.getWindow().getGuiScaledWidth(),
+					client.getWindow().getGuiScaledHeight()});
+			matchesReference(open, "editor-open", gui[0], gui[1]);
 
 			context.getInput().pressKey(GLFW.GLFW_KEY_F1);
 			context.waitTicks(3);
@@ -47,9 +50,57 @@ public class EditorClientGameTest implements FabricClientGameTest {
 			Path closed = context.takeScreenshot("scenescripter-editor-closed");
 
 			Screenshots.printThumbnail(open, "editor-open");
-			Screenshots.printThumbnail(help, "editor-help");
 			expectChanged(closed, open, 0.10, "the editor panels");
 			expectChanged(open, help, 0.02, "the F1 shortcut list");
+		}
+	}
+
+	/**
+	 * Compares the editor's panels in a screenshot against the reviewed reference fingerprint in
+	 * {@code /screenshots/<name>.fingerprint}: only the grid cells covered by the top bar, outliner, inspector and
+	 * timeline count, since the world behind the viewport differs from run to run. Prints the fingerprint so a new
+	 * reference can be taken from the log after the screenshot has been looked at.
+	 */
+	private static void matchesReference(Path shot, String name, int guiWidth, int guiHeight) {
+		int[] cells = Screenshots.fingerprint(shot);
+		System.out.println("FINGERPRINT " + name + " " + Screenshots.hex(cells));
+		String reference;
+		try (var in = EditorClientGameTest.class.getResourceAsStream("/screenshots/" + name + ".fingerprint")) {
+			if (in == null) {
+				System.out.println("No reference for " + name + " yet");
+				return;
+			}
+			reference = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+		} catch (IOException e) {
+			throw new UncheckedIOException(e);
+		}
+		int[] expected = Screenshots.unhex(reference);
+		// Panel edges in grid cells, shrunk by one cell so the viewport's border never counts.
+		int top = (int) ((20.0 / guiHeight) * Screenshots.GRID_H) - 1;
+		int left = (int) ((150.0 / guiWidth) * Screenshots.GRID_W) - 1;
+		int right = Screenshots.GRID_W - (int) ((190.0 / guiWidth) * Screenshots.GRID_W) + 1;
+		int bottom = Screenshots.GRID_H - (int) ((110.0 / guiHeight) * Screenshots.GRID_H) + 1;
+		long total = 0;
+		int counted = 0;
+		int worst = 0;
+		for (int y = 0; y < Screenshots.GRID_H; y++) {
+			for (int x = 0; x < Screenshots.GRID_W; x++) {
+				boolean panel = y < top || y >= bottom || x < left || x >= right;
+				if (!panel) {
+					continue;
+				}
+				int d = Math.abs(cells[y * Screenshots.GRID_W + x] - expected[y * Screenshots.GRID_W + x]);
+				total += d;
+				worst = Math.max(worst, d);
+				counted++;
+			}
+		}
+		double mean = counted == 0 ? 0 : (double) total / counted;
+		System.out.printf(java.util.Locale.ROOT, "%s against its reference: mean difference %.1f, worst %d over %d panel cells%n",
+				name, mean, worst, counted);
+		if (mean > 8 || worst > 90) {
+			throw new AssertionError(String.format(java.util.Locale.ROOT,
+					"The editor panels no longer look like the reference (mean difference %.1f, worst %d)", mean, worst));
 		}
 	}
 

@@ -23,6 +23,46 @@ final class Screenshots {
 		}
 	}
 
+	/** Width and height of the brightness grid screenshots are compared by. */
+	static final int GRID_W = 48;
+	static final int GRID_H = 27;
+
+	/** Average brightness (0 to 255) of each cell of a {@link #GRID_W} by {@link #GRID_H} grid, row by row. */
+	static int[] fingerprint(Path png) {
+		BufferedImage image = scaled(read(png), GRID_W * 8, GRID_H * 8);
+		int[] cells = new int[GRID_W * GRID_H];
+		for (int cy = 0; cy < GRID_H; cy++) {
+			for (int cx = 0; cx < GRID_W; cx++) {
+				long sum = 0;
+				for (int y = 0; y < 8; y++) {
+					for (int x = 0; x < 8; x++) {
+						int p = image.getRGB(cx * 8 + x, cy * 8 + y);
+						sum += ((p >> 16 & 0xFF) * 299 + (p >> 8 & 0xFF) * 587 + (p & 0xFF) * 114) / 1000;
+					}
+				}
+				cells[cy * GRID_W + cx] = (int) (sum / 64);
+			}
+		}
+		return cells;
+	}
+
+	static String hex(int[] cells) {
+		StringBuilder out = new StringBuilder();
+		for (int c : cells) {
+			out.append(String.format("%02x", c));
+		}
+		return out.toString();
+	}
+
+	static int[] unhex(String text) {
+		String t = text.trim();
+		int[] cells = new int[t.length() / 2];
+		for (int i = 0; i < cells.length; i++) {
+			cells[i] = Integer.parseInt(t.substring(i * 2, i * 2 + 2), 16);
+		}
+		return cells;
+	}
+
 	static BufferedImage scaled(BufferedImage image, int width, int height) {
 		BufferedImage out = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
 		var g = out.createGraphics();
