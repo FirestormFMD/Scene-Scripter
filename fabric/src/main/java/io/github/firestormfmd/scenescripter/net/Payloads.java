@@ -19,7 +19,7 @@ public final class Payloads {
 	private Payloads() {
 	}
 
-	private static <T extends CustomPacketPayload> CustomPacketPayload.Type<T> type(String path) {
+	private static <T extends CustomPacketPayload> CustomPacketPayload.Type<T> payloadType(String path) {
 		return new CustomPacketPayload.Type<>(SceneScripter.id(path));
 	}
 
@@ -38,7 +38,7 @@ public final class Payloads {
 
 	/** The editor was opened or closed. */
 	public record EditorState(boolean open) implements CustomPacketPayload {
-		public static final Type<EditorState> TYPE = type("editor_state");
+		public static final Type<EditorState> TYPE = payloadType("editor_state");
 		public static final StreamCodec<FriendlyByteBuf, EditorState> CODEC = StreamCodec.of(
 				(buf, p) -> buf.writeBoolean(p.open()), buf -> new EditorState(buf.readBoolean()));
 
@@ -50,7 +50,7 @@ public final class Payloads {
 
 	/** Part of an edit op, as JSON. */
 	public record Edit(Chunks.Part part) implements CustomPacketPayload {
-		public static final Type<Edit> TYPE = type("edit");
+		public static final Type<Edit> TYPE = payloadType("edit");
 		public static final StreamCodec<FriendlyByteBuf, Edit> CODEC = StreamCodec.of(
 				(buf, p) -> writePart(buf, p.part()), buf -> new Edit(readPart(buf)));
 
@@ -61,7 +61,7 @@ public final class Payloads {
 	}
 
 	public record History(boolean redo) implements CustomPacketPayload {
-		public static final Type<History> TYPE = type("history");
+		public static final Type<History> TYPE = payloadType("history");
 		public static final StreamCodec<FriendlyByteBuf, History> CODEC = StreamCodec.of(
 				(buf, p) -> buf.writeBoolean(p.redo()), buf -> new History(buf.readBoolean()));
 
@@ -80,7 +80,7 @@ public final class Payloads {
 		public static final int LOOP = 4;
 		public static final int STOP = 5;
 
-		public static final Type<Playback> TYPE = type("playback");
+		public static final Type<Playback> TYPE = payloadType("playback");
 		public static final StreamCodec<FriendlyByteBuf, Playback> CODEC = StreamCodec.of(
 				(buf, p) -> {
 					buf.writeVarInt(p.action());
@@ -105,7 +105,7 @@ public final class Payloads {
 		public static final int LIST = 4;
 		public static final int DELETE = 5;
 
-		public static final Type<SceneCommand> TYPE = type("scene_command");
+		public static final Type<SceneCommand> TYPE = payloadType("scene_command");
 		public static final StreamCodec<FriendlyByteBuf, SceneCommand> CODEC = StreamCodec.of(
 				(buf, p) -> {
 					buf.writeVarInt(p.action());
@@ -124,7 +124,7 @@ public final class Payloads {
 
 	/** Part of the open scene as JSON ({@code {"name": ..., "scene": ...}}), or of an empty object when none is open. */
 	public record SceneData(Chunks.Part part) implements CustomPacketPayload {
-		public static final Type<SceneData> TYPE = type("scene_data");
+		public static final Type<SceneData> TYPE = payloadType("scene_data");
 		public static final StreamCodec<FriendlyByteBuf, SceneData> CODEC = StreamCodec.of(
 				(buf, p) -> writePart(buf, p.part()), buf -> new SceneData(readPart(buf)));
 
@@ -137,7 +137,7 @@ public final class Payloads {
 	/** Playhead and undo state of the open scene. */
 	public record PlaybackState(int tick, boolean playing, float speed, int loopStart, int loopEnd, boolean dirty,
 			String undoLabel, String redoLabel) implements CustomPacketPayload {
-		public static final Type<PlaybackState> TYPE = type("playback_state");
+		public static final Type<PlaybackState> TYPE = payloadType("playback_state");
 		public static final StreamCodec<FriendlyByteBuf, PlaybackState> CODEC = StreamCodec.of(
 				(buf, p) -> {
 					buf.writeVarInt(p.tick());
@@ -163,7 +163,7 @@ public final class Payloads {
 	 * rules (walking through actors, not targeting them).
 	 */
 	public record ActorIds(List<String> objectIds, List<Integer> entityIds) implements CustomPacketPayload {
-		public static final Type<ActorIds> TYPE = type("actor_ids");
+		public static final Type<ActorIds> TYPE = payloadType("actor_ids");
 		public static final StreamCodec<FriendlyByteBuf, ActorIds> CODEC = StreamCodec.of(
 				(buf, p) -> {
 					buf.writeVarInt(p.objectIds().size());
@@ -190,7 +190,7 @@ public final class Payloads {
 	}
 
 	public record SceneList(List<String> names) implements CustomPacketPayload {
-		public static final Type<SceneList> TYPE = type("scene_list");
+		public static final Type<SceneList> TYPE = payloadType("scene_list");
 		public static final StreamCodec<FriendlyByteBuf, SceneList> CODEC = StreamCodec.of(
 				(buf, p) -> {
 					buf.writeVarInt(p.names().size());
