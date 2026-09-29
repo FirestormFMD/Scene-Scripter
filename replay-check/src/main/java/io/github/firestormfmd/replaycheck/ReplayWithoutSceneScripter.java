@@ -1,6 +1,7 @@
 package io.github.firestormfmd.replaycheck;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -43,9 +44,19 @@ public class ReplayWithoutSceneScripter implements FabricClientGameTest {
 		// Replay Mod may stop on a screen first (such as a note about mods the recording was made with); log what
 		// is open while waiting, and show it if the replay never starts.
 		boolean started = false;
+		boolean clickedThrough = false;
 		for (int wait = 0; wait < 12 && !started; wait++) {
 			context.waitTicks(100);
 			started = context.computeOnClient(client -> client.level != null && actors(client) > 0);
+			boolean warned = context.computeOnClient(client -> client.gui.screen() != null
+					&& client.gui.screen().getTitle().getString().toLowerCase(java.util.Locale.ROOT).contains("incompatib"));
+			if (warned && !clickedThrough) {
+				// Replay Mod warns that the recording was made with mods that aren't installed (Scene Scripter's network
+				// channels); someone without the mod reads it and loads the replay anyway, and so does this check.
+				clickedThrough = true;
+				String result = context.computeOnClient(client -> loadAnyway(client.gui.screen()));
+				System.out.println("Replay Mod's warning: " + result);
+			}
 			String screen = context.computeOnClient(client -> client.gui.screen() == null ? "none"
 					: client.gui.screen().getClass().getName() + " \"" + client.gui.screen().getTitle().getString() + "\"");
 			System.out.println("Replay after " + (wait + 1) * 5 + " s: level " + context.computeOnClient(client -> client.level != null)
@@ -70,6 +81,120 @@ public class ReplayWithoutSceneScripter implements FabricClientGameTest {
 			}
 		});
 		context.waitFor(client -> client.level == null, 20 * 30);
+	}
+
+	/**
+	 * Presses the button on Replay Mod's incompatibility warning that loads the replay anyway. Replay Mod's screens
+	 * are built from its own GUI library, so the buttons are found by walking the screen's objects.
+	 */
+	private static String loadAnyway(Object screen) {
+		List<Object> clickables = new java.util.ArrayList<>();
+		List<String> texts = new java.util.ArrayList<>();
+		walk(screen, 0, java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()), clickables, texts);
+		StringBuilder out = new StringBuilder("text " + texts + ", buttons [");
+		Object chosen = null;
+		for (Object c : clickables) {
+			String label = text(c);
+			out.append(label).append("; ");
+			String l = label.toLowerCase(java.util.Locale.ROOT);
+			if (chosen == null && !l.isBlank() && l.matches(".*(load|continue|anyway|ignore|proceed|yes|ok).*")
+					&& !l.matches(".*(cancel|back|no\\b|abort).*")) {
+				chosen = c;
+			}
+		}
+		out.append("]");
+		if (chosen == null) {
+			return out + ", none to press";
+		}
+		Method click = method(chosen.getClass(), "onClick");
+		try {
+			click.invoke(chosen);
+		} catch (ReflectiveOperationException e) {
+			return out + ", pressing \"" + text(chosen) + "\" failed: " + e;
+		}
+		return out + ", pressed \"" + text(chosen) + "\"";
+	}
+
+	private static void walk(Object o, int depth, java.util.Set<Object> seen, List<Object> clickables, List<String> texts) {
+		if (o == null || depth > 10 || seen.size() > 20_000 || !seen.add(o)) {
+			return;
+		}
+		if (o instanceof java.util.Map<?, ?> map) {
+			map.keySet().forEach(k -> walk(k, depth + 1, seen, clickables, texts));
+			map.values().forEach(v -> walk(v, depth + 1, seen, clickables, texts));
+			return;
+		}
+		if (o instanceof Iterable<?> items) {
+			items.forEach(i -> walk(i, depth + 1, seen, clickables, texts));
+			return;
+		}
+		if (o instanceof Object[] array) {
+			for (Object i : array) {
+				walk(i, depth + 1, seen, clickables, texts);
+			}
+			return;
+		}
+		Class<?> type = o.getClass();
+		if (!type.getName().startsWith("com.replaymod")) {
+			return;
+		}
+		if (method(type, "onClick") != null) {
+			clickables.add(o);
+		} else if (method(type, "getText") != null) {
+			String t = text(o);
+			if (!t.isBlank()) {
+				texts.add(t);
+			}
+		}
+		for (Class<?> c = type; c != null && c != Object.class; c = c.getSuperclass()) {
+			for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+				if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) || f.getType().isPrimitive()) {
+					continue;
+				}
+				try {
+					f.setAccessible(true);
+					walk(f.get(o), depth + 1, seen, clickables, texts);
+				} catch (RuntimeException | IllegalAccessException ignored) {
+					// a field the module system keeps closed; its contents aren't Replay Mod's
+				}
+			}
+		}
+	}
+
+	/** The label or text of a Replay Mod GUI element, or an empty string. */
+	private static String text(Object element) {
+		for (String name : new String[] {"getLabel", "getText"}) {
+			Method m = method(element.getClass(), name);
+			if (m != null) {
+				try {
+					Object value = m.invoke(element);
+					if (value instanceof net.minecraft.network.chat.Component component) {
+						return component.getString();
+					}
+					if (value instanceof List<?> lines) {
+						return lines.toString();
+					}
+					return String.valueOf(value);
+				} catch (ReflectiveOperationException | RuntimeException e) {
+					return "";
+				}
+			}
+		}
+		return "";
+	}
+
+	/** A method without parameters, declared by the class or a superclass, made accessible; or null. */
+	private static Method method(Class<?> type, String name) {
+		for (Class<?> c = type; c != null && c != Object.class; c = c.getSuperclass()) {
+			try {
+				Method m = c.getDeclaredMethod(name);
+				m.setAccessible(true);
+				return m;
+			} catch (NoSuchMethodException | RuntimeException ignored) {
+				// look further up
+			}
+		}
+		return null;
 	}
 
 	/** A small JPEG of a screenshot, printed to the log as base64 lines, to look at from CI. */
