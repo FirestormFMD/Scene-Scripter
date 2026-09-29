@@ -177,7 +177,8 @@ public class RecorderClientGameTest implements FabricClientGameTest {
 	private static void playBackInFlashback(ClientGameTestContext context, Path replay) {
 		// The test harness puts off world loads asked for inside a client task and starts them again later, which
 		// would lose the replay server Flashback swaps in; queue the opening on the client from this thread instead.
-		net.minecraft.client.Minecraft.getInstance().execute(() -> {
+		net.minecraft.client.Minecraft game = context.computeOnClient(client -> client);
+		game.execute(() -> {
 			try {
 				Class.forName("com.moulberry.flashback.Flashback").getMethod("openReplayWorld", Path.class).invoke(null, replay);
 			} catch (ReflectiveOperationException e) {
