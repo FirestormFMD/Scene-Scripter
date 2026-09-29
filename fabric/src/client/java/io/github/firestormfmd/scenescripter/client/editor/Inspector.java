@@ -298,7 +298,15 @@ final class Inspector {
 		toggle(o, BuiltInChannels.AMBIENT_SOUNDS, "Idle sounds");
 
 		heading("Equipment");
-		for (ChannelSpec<String> slot : EQUIPMENT) {
+		List<ChannelSpec<String>> slots = new java.util.ArrayList<>(EQUIPMENT);
+		Entity wearer = ClientScene.actor(o.id()).orElse(null);
+		if (wearer instanceof net.minecraft.world.entity.animal.equine.AbstractHorse
+				|| wearer instanceof net.minecraft.world.entity.animal.wolf.Wolf) {
+			// Horse armor, saddles, wolf armor and llama carpets.
+			slots.add(BuiltInChannels.BODY);
+			slots.add(BuiltInChannels.SADDLE);
+		}
+		for (ChannelSpec<String> slot : slots) {
 			text(o, slot, slot.name().substring("equipment.".length()));
 		}
 		String use = EditActions.valueNow(o, BuiltInChannels.USE_ITEM);

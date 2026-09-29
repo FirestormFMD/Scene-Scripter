@@ -40,6 +40,9 @@ public final class BuiltInChannels {
 	public static final ChannelSpec<String> CHEST = new ChannelSpec<>("equipment.chest", ValueType.ITEM, "");
 	public static final ChannelSpec<String> LEGS = new ChannelSpec<>("equipment.legs", ValueType.ITEM, "");
 	public static final ChannelSpec<String> FEET = new ChannelSpec<>("equipment.feet", ValueType.ITEM, "");
+	/** Horse and wolf armor, llama carpets and harnesses. */
+	public static final ChannelSpec<String> BODY = new ChannelSpec<>("equipment.body", ValueType.ITEM, "");
+	public static final ChannelSpec<String> SADDLE = new ChannelSpec<>("equipment.saddle", ValueType.ITEM, "");
 	public static final ChannelSpec<Boolean> AMBIENT_SOUNDS = new ChannelSpec<>("ambient_sounds", ValueType.BOOL, true);
 	public static final ChannelSpec<Boolean> SILENT = new ChannelSpec<>("silent", ValueType.BOOL, false);
 	/**
@@ -67,7 +70,7 @@ public final class BuiltInChannels {
 	static {
 		for (ChannelSpec<?> spec : new ChannelSpec<?>[] {POSITION, OFFSET, BODY_YAW, HEAD_YAW, HEAD_PITCH, LOOK_AT, HEALTH, DEAD,
 				POSE, SNEAKING, SPRINTING, ON_FIRE, GLOWING, INVISIBLE, SCALE, CUSTOM_NAME, NAME_VISIBLE, MAINHAND,
-				OFFHAND, HEAD, CHEST, LEGS, FEET, AMBIENT_SOUNDS, SILENT, REMOVED, VEHICLE, IGNITED, USE_ITEM, TIME_OF_DAY, WEATHER}) {
+				OFFHAND, HEAD, CHEST, LEGS, FEET, BODY, SADDLE, AMBIENT_SOUNDS, SILENT, REMOVED, VEHICLE, IGNITED, USE_ITEM, TIME_OF_DAY, WEATHER}) {
 			BY_NAME.put(spec.name(), spec);
 		}
 	}

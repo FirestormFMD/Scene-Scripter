@@ -31,7 +31,9 @@ public final class ActorApplier {
 			"head", EquipmentSlot.HEAD,
 			"chest", EquipmentSlot.CHEST,
 			"legs", EquipmentSlot.LEGS,
-			"feet", EquipmentSlot.FEET);
+			"feet", EquipmentSlot.FEET,
+			"body", EquipmentSlot.BODY,
+			"saddle", EquipmentSlot.SADDLE);
 
 	private ActorApplier() {
 	}

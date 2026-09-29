@@ -195,7 +195,7 @@ public final class SceneEvaluator {
 
 		Map<String, String> equipment = new LinkedHashMap<>();
 		for (ChannelSpec<String> slot : List.of(BuiltInChannels.MAINHAND, BuiltInChannels.OFFHAND, BuiltInChannels.HEAD,
-				BuiltInChannels.CHEST, BuiltInChannels.LEGS, BuiltInChannels.FEET)) {
+				BuiltInChannels.CHEST, BuiltInChannels.LEGS, BuiltInChannels.FEET, BuiltInChannels.BODY, BuiltInChannels.SADDLE)) {
 			equipment.put(slot.name().substring("equipment.".length()), value(o, slot, tick));
 		}
 

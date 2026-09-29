@@ -59,8 +59,8 @@ Click **Place** (or **+ Add** in the outliner), choose a type from the palette, 
 Every object has:
 
 - **A lifetime:** "Spawn here" and "Leave here" set when it appears and disappears. **Appears** and **Leaves** choose whether that happens quietly or in a puff of smoke.
-- **Channels:** position, facing, head turn and tilt, look-at (an object or an `x y z` point), scale, pose, sneaking, sprinting, on fire, glowing, invisible, dead, health, name tag, equipment, item use (bow draws, eating, shields), and idle sounds.
-- **Mob-specific channels** for types that have them, such as a zombie's raised arms (aggressive), a sheep's wool, a wolf sitting, or what an enderman carries.
+- **Channels:** position, facing, head turn and tilt, look-at (an object or an `x y z` point), scale, pose (including mob poses such as a warden roaring, emerging or digging), sneaking, sprinting, on fire, glowing, invisible, dead, health, name tag, equipment (plus body armor and saddles on horses and wolves), item use (bow draws, eating, shields), and idle sounds.
+- **Mob-specific channels** for types that have them: a zombie's raised arms (aggressive), a sheep's wool and shearing, tame animals sitting, an angry wolf and its collar color, a horse rearing or grazing, a villager's profession, biome and head shake, an enderman's carried block and scream.
 - **Look switches** for some types: a charged creeper (which also blasts harder), an end crystal's bedrock base, an arrow's critical trail, and **Baby** for mobs that have babies.
 - **Content** for props: the block a falling block or block display shows (in command syntax), the item a dropped item or item display shows, the text of a text display, and whether a display turns to face the camera.
 - **Variables** of your own: under **Variables**, **Add** takes a name, a type and a starting value, such as `lives int 3`. Types are `int`, `float` and `bool`. Key them like any other channel and use them in event conditions (see below).

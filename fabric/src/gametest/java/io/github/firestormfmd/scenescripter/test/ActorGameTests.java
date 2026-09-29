@@ -109,6 +109,8 @@ public class ActorGameTests {
 		villager.putChannel("villager_type", new Channel<>(ValueType.ENUM, "desert"));
 		SceneObject horse = TestScenes.object(scene, "horse", "minecraft:horse", TestScenes.at(helper, 1, 2, 4));
 		horse.putChannel("rearing", new Channel<>(ValueType.BOOL, true));
+		horse.channel(BuiltInChannels.SADDLE).setDefaultValue("minecraft:saddle");
+		horse.channel(BuiltInChannels.BODY).setDefaultValue("minecraft:iron_horse_armor");
 		SceneObject enderman = TestScenes.object(scene, "enderman", "minecraft:enderman", TestScenes.at(helper, 4, 2, 4));
 		enderman.putChannel("screaming", new Channel<>(ValueType.BOOL, true));
 		SceneSession session = TestScenes.session(helper, scene);
@@ -121,7 +123,10 @@ public class ActorGameTests {
 		Villager v = (Villager) session.actors().actor("villager").orElseThrow();
 		helper.assertTrue(v.getVillagerData().profession().is(VillagerProfession.LIBRARIAN), "villager is a librarian");
 		helper.assertTrue(v.getVillagerData().type().is(VillagerType.DESERT), "villager is from the desert");
-		helper.assertTrue(((AbstractHorse) session.actors().actor("horse").orElseThrow()).isStanding(), "horse rears");
+		AbstractHorse h = (AbstractHorse) session.actors().actor("horse").orElseThrow();
+		helper.assertTrue(h.isStanding(), "horse rears");
+		helper.assertTrue(h.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.SADDLE).is(Items.SADDLE), "horse is saddled");
+		helper.assertTrue(h.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.BODY).is(Items.IRON_HORSE_ARMOR), "horse wears armor");
 		helper.assertTrue(((EnderMan) session.actors().actor("enderman").orElseThrow()).isCreepy(), "enderman screams");
 		session.close();
 		helper.succeed();
