@@ -162,6 +162,9 @@ public final class LocomotionPlanner {
 								? PathIssue.Kind.TOO_HIGH : PathIssue.Kind.JUMP_BLOCKED, tick, s);
 					}
 					landings.add(new Locomotion.Landing(tick, Math.max(0, peakY - g)));
+					if (path.maxDrop() != null && peakY - g > path.maxDrop() + EPS) {
+						report(issues, lastIssueTick, PathIssue.Kind.LONG_DROP, tick, s);
+					}
 					airborne = false;
 					vy = 0;
 					y = g;
@@ -184,6 +187,9 @@ public final class LocomotionPlanner {
 			int tick = clip.startTick() + ticks + extra;
 			if (ny <= endGround) {
 				landings.add(new Locomotion.Landing(tick, Math.max(0, peakY - endGround)));
+				if (path.maxDrop() != null && peakY - endGround > path.maxDrop() + EPS) {
+					report(issues, lastIssueTick, PathIssue.Kind.LONG_DROP, tick, distance[ticks]);
+				}
 				airborne = false;
 				y = endGround;
 			} else {

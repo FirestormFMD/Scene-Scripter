@@ -94,6 +94,19 @@ class LocomotionPlannerTest {
 	}
 
 	@Test
+	void longDropsAreFlaggedOnlyWhenAsked() {
+		VoxelTerrain t = new VoxelTerrain()
+				.fill(-5, 66, -2, 4, 66, 2, Block.STONE) // ledge, top at 67
+				.fill(-5, 63, -2, 30, 63, 2, Block.STONE); // floor, top at 64
+		MotionPath path = straight(0.5, 10.5);
+		assertTrue(plan(path, t).issues().isEmpty());
+		path.setMaxDrop(2.5);
+		assertEquals(PathIssue.Kind.LONG_DROP, plan(path, t).issues().getFirst().kind());
+		path.setMaxDrop(3.5);
+		assertTrue(plan(path, t).issues().isEmpty());
+	}
+
+	@Test
 	void fallsOffLedgesWithVanillaGravity() {
 		VoxelTerrain t = new VoxelTerrain()
 				.fill(-5, 66, -2, 4, 66, 2, Block.STONE) // ledge, top at 67

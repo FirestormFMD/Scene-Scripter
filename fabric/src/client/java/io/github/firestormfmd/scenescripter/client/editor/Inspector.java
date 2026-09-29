@@ -922,8 +922,18 @@ final class Inspector {
 					try {
 						Double jh = v.isBlank() ? null : Double.parseDouble(v.trim());
 						changePath(p, "Change jump height", c -> c.setJumpHeight(jh));
-					} catch (NumberFormatException | IllegalStateException e) {
+					} catch (IllegalArgumentException | IllegalStateException e) {
 						screen.status("Jump height must be a number, or empty for vanilla");
+					}
+				}), null);
+		int dropY = rowY;
+		row("Warn on drops over", p.maxDrop() == null ? "off" : String.format(Locale.ROOT, "%.1f blocks", p.maxDrop()), false,
+				() -> editAt(dropY, p.maxDrop() == null ? "4" : String.valueOf(p.maxDrop()), v -> {
+					try {
+						Double drop = v.isBlank() ? null : Double.parseDouble(v.trim());
+						changePath(p, "Change drop warning", c -> c.setMaxDrop(drop));
+					} catch (IllegalArgumentException | IllegalStateException e) {
+						screen.status("A height in blocks, or empty for no warning");
 					}
 				}), null);
 		label(p.points().size() + " points; drag them in the world");

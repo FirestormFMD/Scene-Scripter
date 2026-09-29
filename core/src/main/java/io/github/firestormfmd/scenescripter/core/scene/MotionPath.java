@@ -20,6 +20,8 @@ public final class MotionPath {
 	private final List<PathMarker> markers = new ArrayList<>();
 	/** Jump height in blocks, or null to use the object's vanilla jump. */
 	private Double jumpHeight;
+	/** Falls longer than this many blocks are flagged; null for no warning. */
+	private Double maxDrop;
 
 	public MotionPath(String id, String name, PathKind kind) {
 		this.id = Objects.requireNonNull(id, "id");
@@ -105,6 +107,17 @@ public final class MotionPath {
 		this.jumpHeight = jumpHeight;
 	}
 
+	public Double maxDrop() {
+		return maxDrop;
+	}
+
+	public void setMaxDrop(Double maxDrop) {
+		if (maxDrop != null && !(maxDrop > 0)) {
+			throw new IllegalArgumentException("Drop warning height must be positive: " + maxDrop);
+		}
+		this.maxDrop = maxDrop;
+	}
+
 	public MotionPath copy() {
 		MotionPath p = new MotionPath(id, name, kind);
 		p.points.addAll(points);
@@ -113,6 +126,7 @@ public final class MotionPath {
 		p.speedKeys.addAll(speedKeys);
 		p.markers.addAll(markers);
 		p.jumpHeight = jumpHeight;
+		p.maxDrop = maxDrop;
 		return p;
 	}
 }

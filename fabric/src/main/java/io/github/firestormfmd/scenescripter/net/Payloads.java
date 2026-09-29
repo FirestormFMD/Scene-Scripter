@@ -112,6 +112,8 @@ public final class Payloads {
 		public static final int RECORD = 8;
 		public static final int RESET = 9;
 		public static final int EXPORT = 10;
+		/** Imports the file named in {@code name} from the exports folder; {@code length} 1 moves it to the player. */
+		public static final int IMPORT = 11;
 
 		public static final Type<SceneCommand> TYPE = payloadType("scene_command");
 		public static final StreamCodec<FriendlyByteBuf, SceneCommand> CODEC = StreamCodec.of(

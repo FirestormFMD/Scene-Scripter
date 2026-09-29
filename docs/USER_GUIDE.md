@@ -71,7 +71,7 @@ Health is not real health. It is a number that attacks subtract from and that ca
 
 Choose **Path**, click along the ground to add points, and press **Enter**. Hold the mouse button and drag to sketch a stretch freehand instead; when you let go it is thinned down to the few points needed to follow your stroke. **Tab** switches between a ground path, which follows the terrain, and an air path, which flies. Select an object and use **Walk** in its inspector to put it on the last selected path at the playhead.
 
-Ground paths snap to real blocks. What counts as ground is set with nothing selected, under **Ground for paths**: a preset (natural ground, all solid blocks, or terrain only), blocks or tags that never count, blocks that also count, and whether paths swim, walk along the bottom of water, or treat it as a wall. Objects step up single blocks, jump up higher ledges with a real jump arc, and fall off edges. Select a path to change its gait (walk, sprint, sneak), speed, speed keys, jump height, and wait, jump and gait markers. Problems such as a wall that is too high show in red in the world.
+Ground paths snap to real blocks. What counts as ground is set with nothing selected, under **Ground for paths**: a preset (natural ground, all solid blocks, or terrain only), blocks or tags that never count, blocks that also count, and whether paths swim, walk along the bottom of water, or treat it as a wall. Objects step up single blocks, jump up higher ledges with a real jump arc, and fall off edges. Select a path to change its gait (walk, sprint, sneak), speed, speed keys, jump height, a warning for drops longer than a height you choose, and wait, jump and gait markers. Problems such as a wall that is too high show in red in the world.
 
 To edit a path, select it and click one of its points (the selected point is drawn larger):
 
@@ -167,7 +167,7 @@ From a command block, `/scene run <name>` opens a scene and plays it for recordi
 
 Everything lives in the world folder under `scene_scripter/`:
 
-- `scenes/<name>.json`: the scene. `scenes/<name>.takes.gz`: its performance-capture takes.
+- `scenes/<name>.json`: the scene (`<name>.json.gz` once it grows past a megabyte). `scenes/<name>.takes.gz`: its performance-capture takes.
 - `backups/`: the last five saves of each scene.
-- `exports/`: shared scene files for `/scene export` (or **Export** in the scene browser) and `/scene import`.
+- `exports/`: shared scene files for `/scene export` (or **Export** in the scene browser) and `/scene import` (or **Import...** in the scene browser, which places the scene where you stand).
 - `journal.json.gz`: what the open scene changed in the world, written before each change, so the world is repaired on the next start if the game stops mid-scene.

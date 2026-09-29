@@ -339,6 +339,10 @@ public final class SceneManager {
 						session.reset();
 					}
 				}
+				case Payloads.SceneCommand.IMPORT -> {
+					Scene imported = importScene(c.name(), player.level(), c.length() == 1 ? player.blockPosition() : null);
+					player.sendSystemMessage(Component.literal("Imported " + imported.name()));
+				}
 				case Payloads.SceneCommand.EXPORT -> {
 					if (session != null) {
 						var out = storage.export(session.name(), session.scene());

@@ -370,6 +370,11 @@ public final class EditorScreen extends Screen {
 			ClientNet.sceneCommand(Payloads.SceneCommand.NEW, name, 20 * 60);
 			EditorState.sceneBrowserOpen = false;
 		}));
+		ui.button(x + 132, by, 80, 16, "Import...", false, () -> editText(x + 8, by - 16, 220, "my_scene.scene.json", file -> {
+			ClientNet.sceneCommand(Payloads.SceneCommand.IMPORT, file.trim(), 1);
+			EditorState.sceneBrowserOpen = false;
+			status("Importing " + file.trim() + " from the exports folder, with its origin where you stand");
+		}));
 		if (scene != null) {
 			ui.button(x + w - 70, by, 62, 16, "Back", false, () -> EditorState.sceneBrowserOpen = false);
 		}

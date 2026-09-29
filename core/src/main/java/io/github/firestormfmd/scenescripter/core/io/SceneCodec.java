@@ -172,6 +172,7 @@ public final class SceneCodec {
 		}
 		o.add("markers", markers);
 		if (p.jumpHeight() != null) o.addProperty("jumpHeight", p.jumpHeight());
+		if (p.maxDrop() != null) o.addProperty("maxDrop", p.maxDrop());
 		return o;
 	}
 
@@ -456,6 +457,7 @@ public final class SceneCodec {
 		}
 		p.setMarkers(markers);
 		if (o.has("jumpHeight")) p.setJumpHeight(o.get("jumpHeight").getAsDouble());
+		if (o.has("maxDrop")) p.setMaxDrop(o.get("maxDrop").getAsDouble());
 		return p;
 	}
 

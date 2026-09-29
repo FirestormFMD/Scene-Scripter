@@ -17,7 +17,9 @@ public record PathIssue(Kind kind, int tick, double distance) {
 		/** A fluid is in the way and the ground filter treats fluids as blocked. */
 		FLUID_BLOCKED("Fluid blocks the path"),
 		/** A fitted clip is shorter than its wait markers. */
-		NOT_ENOUGH_TIME("Clip is shorter than its waits");
+		NOT_ENOUGH_TIME("Clip is shorter than its waits"),
+		/** A fall longer than the path's warning height. */
+		LONG_DROP("Drop is longer than this path allows");
 
 		private final String message;
 
