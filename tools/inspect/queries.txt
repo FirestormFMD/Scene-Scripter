@@ -1,23 +1,17 @@
-# batch 4: terrain, block entities, editor client APIs
-grep world/level/block/Block.java public static final int UPDATE_
-grep world/level/block/state/BlockBehaviour.java public VoxelShape getCollisionShape\(|public FluidState getFluidState\(|public SoundType getSoundType\(|public boolean isAir\(|public float getDestroySpeed|public .*getExplosionResistance
-grep world/phys/shapes/VoxelShape.java public double max\(|public boolean isEmpty\(|public AABB bounds\(
-grep world/level/material/FluidState.java public float getHeight\(|public boolean isEmpty\(|public float getOwnHeight\(|public boolean is\(
-grep world/level/block/entity/BlockEntity.java public .* save|public .* load|public static .*loadStatic|public final CompoundTag|public void loadWithComponents
-grep world/level/Level.java public .* getBlockEntity\(|public void removeBlockEntity|public .* setBlockEntity\(
-outline gizmos/Gizmos.java
-grep gizmos public static .* (stroke|fill|strokeAndFill)\(
-grep client/renderer/debug/DebugRenderer.java renderers|interface SimpleDebugRenderer|void emitGizmos|public void emitGizmos|refreshRendererList|private .*List
-grep client/gui/components/events/GuiEventListener.java default boolean|boolean mouse|boolean key|boolean char
-grep client/input/MouseButtonEvent.java record|public .*\(
-grep client/input/KeyEvent.java record|public .*\(
-grep client/gui/screens/Screen.java public boolean isPauseScreen|public void extractBackground|protected void init\(|public void onClose|public void removed|public boolean shouldCloseOnEsc|protected <T extends .*> T addRenderableWidget|public void extractRenderState
-grep client/gui/GuiGraphicsExtractor.java public void (fill|fillGradient|text|centeredText|outline|hLine|vLine|enableScissor|disableScissor|item|renderOutline)\(
-grep client/Camera.java public .*(position|getPosition|yRot|xRot|getYRot|getXRot|getLookVector|forwards)\(
-grep client/player/LocalPlayer.java public .*Input|public void sendOverlayMessage|public boolean isCreative
-grep world/entity/player/Abilities.java public boolean (flying|mayfly|instabuild)|public void setFlyingSpeed|public float getFlyingSpeed
-grep client/MouseHandler.java public void (grabMouse|releaseMouse)|public boolean isMouseGrabbed|public double (xpos|ypos)
-grep client/multiplayer/ClientLevel.java public Iterable<Entity> entitiesForRendering|public .*getEntity\(int
-grep com/mojang/blaze3d/platform/InputConstants.java public static boolean isKeyDown
-grep client/Minecraft.java public (final )?(Gui|Window|MouseHandler|GameRenderer|Font|Options|LocalPlayer|ClientLevel) |public .*getWindow\(|public .*getDeltaTracker|public float getFrameTime
-grep client/renderer/GameRenderer.java public Camera getMainCamera|public void pick\(|getProjectionMatrix|public .*getFov
+# batch 5: remaining actor/editor APIs
+method server/level/ServerLevel.java tickPassenger
+lines world/entity/LightningBolt.java 124 140
+grep world/entity/Entity.java public void setCustomName|public void setCustomNameVisible|public void setDeltaMovement\(|public Vec3 getDeltaMovement|public void setYRot|public void setXRot|public float getYRot\(\)|public float getXRot\(\)|public final AABB getBoundingBox|public final float getBbHeight|public final float getBbWidth|public Level level\(\)|public void refreshDimensions|public final boolean isRemoved|public .*getServer\(\)|public UUID getUUID|public void setUUID
+grep world/entity/ai/attributes/DefaultAttributes.java public static
+grep world/entity/ai/attributes/AttributeSupplier.java public double getValue|public boolean hasAttribute
+grep world/entity/AgeableMob.java public void setBaby|public boolean isBaby|public void setAge
+grep server/level/ServerChunkCache.java public void broadcast|public void broadcastAndSend|public void addTicketWithRadius|public void addTicket|public void removeTicket
+grep network/protocol/game/ClientboundTeleportEntityPacket.java record|public ClientboundTeleportEntityPacket|public static
+grep client/renderer/GameRenderer.java Camera
+grep client/Options.java OptionInstance<Integer> fov|public final KeyMapping key(Up|Down|Left|Right|Jump|Shift|Sprint)
+grep world/entity/LivingEntity.java public float getHealth|public double getAttributeValue|public void setArrowCount|public void setLastHurtByMob|public .*getItemBySlot|public void startUsingItem|public void stopUsingItem
+grep server/MinecraftServer.java public ServerLevel overworld|public .*getAllLevels|public PlayerList getPlayerList|public .*getWorldPath|public .*getLevel\(|public boolean isSingleplayer
+grep world/level/Level.java public <T extends Entity> List<T> getEntitiesOfClass|public List<Entity> getEntities\(
+grep world/level/TicketType.java public static final TicketType
+grep server/level/ServerPlayer.java public ServerGamePacketListenerImpl connection|public ServerLevel level\(\)
+grep world/entity/Entity.java public boolean isAlive|public void setGlowingTag|public void setInvisible|public void setSilent|public void setPose|public void setShiftKeyDown|public void setSwimming
