@@ -1,6 +1,8 @@
 package io.github.firestormfmd.scenescripter.server;
 
 import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.entity.item.FallingBlockEntity;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.item.PrimedTnt;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.projectile.Projectile;
@@ -9,6 +11,7 @@ import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import io.github.firestormfmd.scenescripter.core.scene.BuiltInChannels;
 import io.github.firestormfmd.scenescripter.core.scene.SceneEvent;
 import io.github.firestormfmd.scenescripter.mixin.AbstractArrowAccessor;
+import io.github.firestormfmd.scenescripter.mixin.FallingBlockAccessor;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -18,9 +21,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+
+import net.minecraft.commands.arguments.blocks.BlockStateParser;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.AgeableMob;
+import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
@@ -209,6 +217,46 @@ public final class ActorController {
 		return best;
 	}
 
+	/**
+	 * What a falling block, block or item display, dropped item or text display shows, from the object's
+	 * appearance. Set before the entity is added, since a falling block's look only travels in its spawn packet.
+	 */
+	private void applyContent(SceneObject o, Entity e) {
+		String block = o.appearance().getOrDefault("block", "").trim();
+		if (!block.isEmpty() && (e instanceof FallingBlockEntity || e instanceof Display.BlockDisplay)) {
+			try {
+				BlockState state = BlockStateParser.parseForBlock(level.registryAccess().lookupOrThrow(Registries.BLOCK),
+						block, false).blockState();
+				if (e instanceof FallingBlockEntity falling) {
+					((FallingBlockAccessor) falling).scenescripter$setBlockState(state);
+				} else {
+					((Display.BlockDisplay) e).setBlockState(state);
+				}
+			} catch (CommandSyntaxException ex) {
+				SceneScripter.LOGGER.warn("Scene object {} has an unreadable block {}", o.id(), block);
+			}
+		}
+		String item = o.appearance().getOrDefault("item", "").trim();
+		if (!item.isEmpty()) {
+			if (e instanceof ItemEntity dropped) {
+				dropped.setItem(ActorApplier.stack(item));
+			} else if (e instanceof Display.ItemDisplay display) {
+				display.setItemStack(ActorApplier.stack(item));
+			}
+		}
+		if (e instanceof Display.TextDisplay text) {
+			text.setText(Component.literal(o.appearance().getOrDefault("text", o.name())));
+		}
+		if (e instanceof Display display) {
+			String billboard = o.appearance().getOrDefault("billboard", e instanceof Display.TextDisplay ? "center" : "fixed");
+			try {
+				display.setBillboardConstraints(Display.BillboardConstraints.valueOf(billboard.toUpperCase(java.util.Locale.ROOT)));
+			} catch (IllegalArgumentException ignored) {
+				// keep the default for a value from a newer version
+			}
+		}
+	}
+
 	private static boolean ignited(SceneObject o, int tick) {
 		return o.channel(BuiltInChannels.IGNITED.name()).map(ch -> Boolean.TRUE.equals(ch.valueAt(tick))).orElse(false);
 	}
@@ -284,9 +332,10 @@ public final class ActorController {
 		if (e instanceof Mob mob) {
 			mob.setNoAi(true);
 		}
-		if (e instanceof AgeableMob ageable && "true".equals(o.appearance().get("baby"))) {
-			ageable.setAge(-24000);
+		if (e instanceof Mob mob && "true".equals(o.appearance().get("baby"))) {
+			mob.setBaby(true);
 		}
+		applyContent(o, e);
 		if (e instanceof Mannequin mannequin) {
 			MannequinAccessor access = (MannequinAccessor) mannequin;
 			String skin = o.appearance().getOrDefault("skin", "");

@@ -115,6 +115,17 @@ class WorldSolverTest {
 	}
 
 	@Test
+	void thrownTntExplodesWhereItLands() {
+		SceneObject tnt = object("tnt", "minecraft:tnt", new Vec3(0.5, 1, 0.5));
+		tnt.addEvent(new SceneEvent("toss", 5, "launch", null, Map.of("to", "8.5 1 0.5"), null));
+		Solver.Solution s = solver.solve(scene, eval, world);
+		Vec3 center = s.explosions().getFirst().center();
+		assertEquals(8.5, center.x(), 0.25, "comes to rest where it was thrown");
+		assertEquals(0.5, center.z(), 1e-6);
+		assertTrue(eval.evaluate(tnt, 15).position().y() > 1.2, "flies in an arc");
+	}
+
+	@Test
 	void defusedCreepersDontExplode() {
 		SceneObject creeper = object("c", "minecraft:creeper", new Vec3(0.5, 1, 0.5));
 		creeper.addEvent(new SceneEvent("hiss", 40, "ignite", null, Map.of(), null));

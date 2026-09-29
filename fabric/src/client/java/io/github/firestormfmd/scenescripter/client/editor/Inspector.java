@@ -131,6 +131,52 @@ final class Inspector {
 			{"minecraft:spectral_arrow", "crit", "Critical trail", "off"},
 	};
 
+	/** What displays, falling blocks and dropped items show, and whether a mob is a baby. */
+	private void contentRows(SceneObject o) {
+		String type = o.entityType();
+		if (type.equals("minecraft:falling_block") || type.equals("minecraft:block_display")) {
+			appearanceText(o, "block", "Block", "minecraft:stone");
+		}
+		if (type.equals("minecraft:item") || type.equals("minecraft:item_display")) {
+			appearanceText(o, "item", "Item", "minecraft:diamond");
+		}
+		if (type.equals("minecraft:text_display")) {
+			appearanceText(o, "text", "Text", o.name());
+		}
+		if (type.endsWith("_display")) {
+			List<String> modes = List.of("fixed", "vertical", "horizontal", "center");
+			String mode = o.appearance().getOrDefault("billboard", type.equals("minecraft:text_display") ? "center" : "fixed");
+			row("Faces camera", mode, false, () -> EditActions.change(o, "Change billboard",
+					c -> c.appearance().put("billboard", modes.get((modes.indexOf(mode) + 1) % modes.size()))), null);
+		}
+		Entity actor = ClientScene.actor(o.id()).orElse(null);
+		if (actor instanceof net.minecraft.world.entity.AgeableMob || actor instanceof net.minecraft.world.entity.monster.zombie.Zombie
+				|| actor instanceof net.minecraft.world.entity.monster.piglin.Piglin
+				|| actor instanceof net.minecraft.world.entity.monster.Zoglin) {
+			boolean baby = "true".equals(o.appearance().get("baby"));
+			row("Baby", baby ? "yes" : "no", false, () -> EditActions.change(o, "Change baby", c -> {
+				if (baby) {
+					c.appearance().remove("baby");
+				} else {
+					c.appearance().put("baby", "true");
+				}
+			}), null);
+		}
+	}
+
+	private void appearanceText(SceneObject o, String key, String label, String example) {
+		int ry = rowY;
+		String value = o.appearance().getOrDefault(key, "");
+		row(label, value.isEmpty() ? "-" : value, false, () -> editAt(ry, value.isEmpty() ? example : value,
+				v -> EditActions.change(o, "Change " + label.toLowerCase(Locale.ROOT), c -> {
+					if (v.isBlank()) {
+						c.appearance().remove(key);
+					} else {
+						c.appearance().put(key, v.trim());
+					}
+				})), null);
+	}
+
 	private void object(Scene scene, SceneObject o) {
 		heading(o.name() + "  (" + EditActions.prettyName(o.entityType()) + ")");
 		int nameY = rowY;
@@ -176,6 +222,7 @@ final class Inspector {
 				}
 			}), null);
 		}
+		contentRows(o);
 		int tick = ClientScene.tick();
 		String life = (o.spawnTick() == 0 && o.despawnTick() < 0) ? "always"
 				: o.spawnTick() + " to " + (o.despawnTick() < 0 ? "end" : String.valueOf(o.despawnTick()));
@@ -463,6 +510,16 @@ final class Inspector {
 							screen.status("Three numbers: x y z");
 						}
 					}));
+			ui.button(x + 6 + 3 * (bw + 2), rowY, bw, 11, "throw...", false, () -> editAt(teleportY,
+					String.format(Locale.ROOT, "%.1f %.1f %.1f", here.x() + 6, here.y(), here.z()), v -> {
+						if (v.trim().split("\\s+").length != 3) {
+							screen.status("Where it should land: x y z");
+							return;
+						}
+						ClientScene.scene().ifPresent(sc -> ClientNet.edit(new Edits.AddEvent(o.id(),
+								new io.github.firestormfmd.scenescripter.core.scene.SceneEvent(EditActions.freshId(sc, "e"), tick,
+										"launch", null, java.util.Map.of("to", v.trim()), null))));
+					}));
 		}
 		rowY += 13;
 		var mobEvents = io.github.firestormfmd.scenescripter.actor.MobEvents.forType(o.entityType());
@@ -660,6 +717,10 @@ final class Inspector {
 		row("Blasts start fires", fire ? "yes" : "no", false, () -> setRules(scene, withExplosions(r,
 				new io.github.firestormfmd.scenescripter.core.scene.ExplosionRules(ex.breakBlocks(), ex.damageObjects(),
 						ex.damageRealEntities(), ex.dropItems(), !fire))), null);
+		boolean drops = Boolean.TRUE.equals(ex.dropItems());
+		row("Blasts drop items", drops ? "yes" : "no", false, () -> setRules(scene, withExplosions(r,
+				new io.github.firestormfmd.scenescripter.core.scene.ExplosionRules(ex.breakBlocks(), ex.damageObjects(),
+						ex.damageRealEntities(), !drops, ex.fire()))), null);
 	}
 
 	private static io.github.firestormfmd.scenescripter.core.scene.InteractionRules withExplosions(

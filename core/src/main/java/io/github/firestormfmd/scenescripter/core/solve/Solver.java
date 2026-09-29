@@ -109,6 +109,7 @@ public final class Solver {
 					case "attack" -> scheduleIf(o, e, 1, () -> attacks.add(attack(o, e, rulesFor(scene, o, e))));
 					case "hurt" -> scheduleIf(o, e, 1, () -> manualHurt(o, e, rulesFor(scene, o, e)));
 					case "shoot" -> scheduleIf(o, e, 1, () -> shoot(o, e));
+					case "launch" -> scheduleIf(o, e, 1, () -> launch(o, e));
 					case "ignite" -> scheduleIf(o, e, 2, () -> ignite(o, e));
 					case "defuse" -> scheduleIf(o, e, 2, () -> putGenerated(o.channel(BuiltInChannels.IGNITED), e.tick(), false, e.id()));
 					case "explode" -> scheduleIf(o, e, 3, () -> explode(o, e.id(), e, e.tick(), null));
@@ -326,6 +327,42 @@ public final class Solver {
 			}
 		}
 
+	}
+
+	/**
+	 * Throws an object: {@code to} ("x y z") aims it to come to rest there, or {@code velocity} ("x y z", blocks per
+	 * tick) sets the throw directly. TNT flies with TNT physics, anything else like a knocked-back mob.
+	 */
+	private void launch(SceneObject o, SceneEvent event) {
+		ObjectState s = eval.evaluate(o, event.tick());
+		if (!s.exists()) {
+			return;
+		}
+		Vec3 velocity = null;
+		Vec3 to = parseVec(event.params().get("to"));
+		if (to != null) {
+			Vec3 flat = new Vec3(to.x() - s.position().x(), 0, to.z() - s.position().z());
+			double upward = event.params().get("up") instanceof Number n ? n.doubleValue() : 0.35;
+			velocity = flat.horizontalLength() < 1.0e-6 ? new Vec3(0, upward, 0)
+					: VanillaCombat.throwVelocity(flat, flat.horizontalLength(), upward, isTnt(o));
+		} else {
+			velocity = parseVec(event.params().get("velocity"));
+		}
+		if (velocity != null) {
+			applyPath(o, event.tick(), isTnt(o) ? VanillaCombat.tntPath(velocity) : VanillaCombat.launchPath(velocity), event.id());
+		}
+	}
+
+	private static Vec3 parseVec(Object value) {
+		if (!(value instanceof String text)) {
+			return null;
+		}
+		String[] c = text.trim().split("\\s+");
+		try {
+			return c.length == 3 ? new Vec3(Double.parseDouble(c[0]), Double.parseDouble(c[1]), Double.parseDouble(c[2])) : null;
+		} catch (NumberFormatException e) {
+			return null;
+		}
 	}
 
 	/** Lays a displacement path, tick by tick from {@code tick}, into the offset channel. */

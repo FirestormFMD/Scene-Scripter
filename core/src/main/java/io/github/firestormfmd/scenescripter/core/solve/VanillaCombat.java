@@ -101,6 +101,69 @@ public final class VanillaCombat {
 	}
 
 	/**
+	 * Displacement of lit TNT thrown with a velocity, tick by tick until it comes to rest at its starting height:
+	 * vanilla TNT gravity (0.04), drag (0.98), and on the ground friction (0.7) with a small bounce.
+	 */
+	public static Vec3[] tntPath(Vec3 velocity) {
+		if (velocity.length() < 1.0e-6) {
+			return new Vec3[] {Vec3.ZERO};
+		}
+		double vx = velocity.x();
+		double vy = velocity.y();
+		double vz = velocity.z();
+		double x = 0;
+		double y = 0;
+		double z = 0;
+		java.util.List<Vec3> out = new java.util.ArrayList<>();
+		out.add(Vec3.ZERO);
+		for (int i = 0; i < 200; i++) {
+			vy -= 0.04;
+			x += vx;
+			y += vy;
+			z += vz;
+			boolean onGround = y <= 0;
+			if (onGround) {
+				y = 0;
+			}
+			vx *= 0.98;
+			vy *= 0.98;
+			vz *= 0.98;
+			if (onGround) {
+				vx *= 0.7;
+				vz *= 0.7;
+				vy = Math.abs(vy) < 0.08 ? 0 : vy * -0.5;
+			}
+			out.add(new Vec3(x, y, z));
+			if (onGround && vy == 0 && Math.abs(vx) < 0.003 && Math.abs(vz) < 0.003) {
+				break;
+			}
+		}
+		return out.toArray(new Vec3[0]);
+	}
+
+	/**
+	 * The throw velocity that brings a body to rest {@code distance} blocks away, leaving at {@code upward}
+	 * blocks per tick; {@code tnt} picks TNT physics over a living body's.
+	 */
+	public static Vec3 throwVelocity(Vec3 direction, double distance, double upward, boolean tnt) {
+		Vec3 d = new Vec3(direction.x(), 0, direction.z()).normalize();
+		double lo = 0;
+		double hi = 4;
+		for (int i = 0; i < 40; i++) {
+			double mid = (lo + hi) / 2;
+			Vec3 v = new Vec3(d.x() * mid, upward, d.z() * mid);
+			Vec3[] path = tnt ? tntPath(v) : launchPath(v);
+			if (path[path.length - 1].horizontalLength() < distance) {
+				lo = mid;
+			} else {
+				hi = mid;
+			}
+		}
+		double speed = (lo + hi) / 2;
+		return new Vec3(d.x() * speed, upward, d.z() * speed);
+	}
+
+	/**
 	 * Displacement of a body launched with a velocity, such as by an explosion, tick by tick until it lands back at
 	 * its starting height and friction stops it. The first entry is the launch tick (no movement yet).
 	 */

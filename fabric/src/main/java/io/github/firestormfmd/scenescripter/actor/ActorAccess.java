@@ -9,4 +9,9 @@ public interface ActorAccess {
 	@Nullable String scenescripter$objectId();
 
 	void scenescripter$setObjectId(@Nullable String objectId);
+
+	/** Items a scene explosion dropped: real and ticking, but never saved, so they can't outlive the scene. */
+	boolean scenescripter$isSceneDrop();
+
+	void scenescripter$setSceneDrop(boolean sceneDrop);
 }

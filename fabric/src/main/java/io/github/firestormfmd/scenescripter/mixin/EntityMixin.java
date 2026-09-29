@@ -32,6 +32,19 @@ public abstract class EntityMixin implements ActorAccess {
 	}
 
 	@Unique
+	private boolean scenescripter$sceneDrop;
+
+	@Override
+	public boolean scenescripter$isSceneDrop() {
+		return scenescripter$sceneDrop;
+	}
+
+	@Override
+	public void scenescripter$setSceneDrop(boolean sceneDrop) {
+		scenescripter$sceneDrop = sceneDrop;
+	}
+
+	@Unique
 	private boolean scenescripter$isActor() {
 		return scenescripter$objectId != null;
 	}
@@ -39,7 +52,7 @@ public abstract class EntityMixin implements ActorAccess {
 	/** Actors are recreated from the scene on load, so they must never end up in the world save. */
 	@Inject(method = "shouldBeSaved", at = @At("HEAD"), cancellable = true)
 	private void scenescripter$neverSaveActors(CallbackInfoReturnable<Boolean> cir) {
-		if (scenescripter$isActor()) {
+		if (scenescripter$isActor() || scenescripter$sceneDrop) {
 			cir.setReturnValue(false);
 		}
 	}

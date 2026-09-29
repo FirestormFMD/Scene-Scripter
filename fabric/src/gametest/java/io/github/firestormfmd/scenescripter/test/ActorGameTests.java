@@ -6,6 +6,10 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
 import net.minecraft.world.entity.animal.wolf.Wolf;
 import net.minecraft.world.entity.decoration.Mannequin;
+import net.minecraft.world.entity.item.FallingBlockEntity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.monster.EnderMan;
 import net.minecraft.world.entity.npc.villager.Villager;
@@ -119,6 +123,26 @@ public class ActorGameTests {
 		helper.assertTrue(v.getVillagerData().type().is(VillagerType.DESERT), "villager is from the desert");
 		helper.assertTrue(((AbstractHorse) session.actors().actor("horse").orElseThrow()).isStanding(), "horse rears");
 		helper.assertTrue(((EnderMan) session.actors().actor("enderman").orElseThrow()).isCreepy(), "enderman screams");
+		session.close();
+		helper.succeed();
+	}
+
+	@GameTest(maxTicks = 20)
+	public void propsShowTheirContent(GameTestHelper helper) {
+		Scene scene = new Scene("t", 200);
+		TestScenes.object(scene, "block", "minecraft:falling_block", TestScenes.at(helper, 1, 2, 1))
+				.appearance().put("block", "minecraft:gold_block");
+		TestScenes.object(scene, "apple", "minecraft:item", TestScenes.at(helper, 3, 2, 1)).appearance().put("item", "minecraft:apple");
+		TestScenes.object(scene, "kid", "minecraft:zombie", TestScenes.at(helper, 5, 2, 1)).appearance().put("baby", "true");
+		TestScenes.object(scene, "sign", "minecraft:text_display", TestScenes.at(helper, 1, 3, 4)).appearance().put("text", "Hello");
+		SceneSession session = TestScenes.session(helper, scene);
+		session.tick();
+		helper.assertTrue(session.actors().actor("block").orElseThrow() instanceof FallingBlockEntity f
+				&& f.getBlockState().is(Blocks.GOLD_BLOCK), "falling block shows gold");
+		helper.assertTrue(session.actors().actor("apple").orElseThrow() instanceof ItemEntity i && i.getItem().is(Items.APPLE),
+				"dropped item is an apple");
+		helper.assertTrue(session.actors().actor("kid").orElseThrow() instanceof Mob m && m.isBaby(), "zombie is a baby");
+		helper.assertTrue(session.actors().actor("sign").isPresent(), "text display spawned");
 		session.close();
 		helper.succeed();
 	}

@@ -94,6 +94,9 @@ public final class CaptureSession {
 			ItemStack stack = player.getItemBySlot(slot);
 			equipment.put(name, stack.isEmpty() ? "" : BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
 		});
+		if (player.isUsingItem()) {
+			equipment.put(CaptureSample.USE_ITEM, player.getUsedItemHand() == net.minecraft.world.InteractionHand.OFF_HAND ? "off" : "main");
+		}
 		Vec3 p = player.position();
 		samples.add(new CaptureSample(tick, new io.github.firestormfmd.scenescripter.core.math.Vec3(p.x, p.y, p.z),
 				player.yBodyRot, player.getYHeadRot(), player.getXRot(), player.onGround(), player.isShiftKeyDown(),

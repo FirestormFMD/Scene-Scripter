@@ -24,8 +24,11 @@ import io.github.firestormfmd.scenescripter.core.scene.SceneObject;
 
 class CaptureTest {
 	private static CaptureSample sample(int tick, Vec3 pos, float yaw, boolean onGround) {
-		return new CaptureSample(tick, pos, yaw, yaw, 0, onGround, false, false, false, "standing",
-				Map.of("mainhand", tick < 130 ? "" : "minecraft:iron_sword"));
+		Map<String, String> equipment = new java.util.HashMap<>(Map.of("mainhand", tick < 130 ? "" : "minecraft:iron_sword"));
+		if (tick >= 160 && tick < 170) {
+			equipment.put(CaptureSample.USE_ITEM, "main");
+		}
+		return new CaptureSample(tick, pos, yaw, yaw, 0, onGround, false, false, false, "standing", equipment);
 	}
 
 	/** Walks east for 40 ticks, then turns and walks north for 40 ticks, starting at tick 100. */
@@ -67,6 +70,8 @@ class CaptureTest {
 		}
 		assertEquals("", eval.evaluate(o, 120).equipment().get("mainhand"));
 		assertEquals("minecraft:iron_sword", eval.evaluate(o, 140).equipment().get("mainhand"));
+		assertEquals("main", eval.evaluate(o, 165).useItem());
+		assertEquals("", eval.evaluate(o, 172).useItem());
 		assertTrue(o.findEvent("t1:e0").isPresent());
 	}
 

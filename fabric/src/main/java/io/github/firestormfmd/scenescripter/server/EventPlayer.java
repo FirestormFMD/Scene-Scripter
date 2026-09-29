@@ -64,6 +64,8 @@ public final class EventPlayer {
 		this.session = session;
 	}
 
+	private final java.util.List<Entity> drops = new java.util.ArrayList<>();
+
 	public void fire(SceneObject owner, SceneEvent event) {
 		Entity actor = session.actors().actor(owner.id()).orElse(null);
 		switch (event.type()) {
@@ -120,6 +122,37 @@ public final class EventPlayer {
 		// Scene actors are invulnerable, so only real entities can be hurt when that rule is on.
 		session.level().explode(null, null, calculator, r.center().x(), r.center().y(), r.center().z(), r.power(),
 				false, Level.ExplosionInteraction.NONE);
+		if (Boolean.TRUE.equals(rules.dropItems())) {
+			dropItems(r);
+		}
+	}
+
+	/**
+	 * Drops what the broken blocks would drop, as items nobody can pick up. They are real, falling items, removed
+	 * again when the playhead goes back or the scene closes.
+	 */
+	private void dropItems(Solver.ExplosionResult r) {
+		net.minecraft.server.level.ServerLevel level = session.level();
+		for (io.github.firestormfmd.scenescripter.core.math.BlockPos p : r.blocks()) {
+			session.journal().replacedBy(r.eventId(), p).ifPresent(before -> {
+				BlockPos pos = new BlockPos(p.x(), p.y(), p.z());
+				for (net.minecraft.world.item.ItemStack stack : Block.getDrops(before.state(), level, pos, null)) {
+					net.minecraft.world.entity.item.ItemEntity item = new net.minecraft.world.entity.item.ItemEntity(level,
+							pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, stack);
+					item.setNeverPickUp();
+					((io.github.firestormfmd.scenescripter.actor.ActorAccess) item).scenescripter$setSceneDrop(true);
+					if (level.addFreshEntity(item)) {
+						drops.add(item);
+					}
+				}
+			});
+		}
+	}
+
+	/** Removes the items explosions dropped. */
+	public void clearDrops() {
+		drops.forEach(Entity::discard);
+		drops.clear();
 	}
 
 	private void shoot(SceneObject owner, SceneEvent event, Entity actor) {

@@ -323,6 +323,9 @@ public final class SceneSession {
 	}
 
 	private void applyStep(PlaybackClock.Step step) {
+		if (!step.contiguous() || step.to() < step.from()) {
+			events.clearDrops();
+		}
 		journal.seek(step.to(), blocks);
 		actorListChanged |= actors.update(evaluator, step.to(), !step.contiguous());
 		tracks.apply(evaluator.tracks(step.to()));
@@ -413,6 +416,7 @@ public final class SceneSession {
 	/** Removes actors and undoes every block change, leaving the world as it was before the scene. */
 	public void close() {
 		clock.pause();
+		events.clearDrops();
 		actors.removeAll();
 		journal.revertAll(blocks);
 		tracks.restore();

@@ -61,7 +61,8 @@ Every object has:
 - **A lifetime:** "Spawn here" and "Leave here" set when it appears and disappears. **Appears** and **Leaves** choose whether that happens quietly or in a puff of smoke.
 - **Channels:** position, facing, head turn and tilt, look-at (an object or an `x y z` point), scale, pose, sneaking, sprinting, on fire, glowing, invisible, dead, health, name tag, equipment, item use (bow draws, eating, shields), and idle sounds.
 - **Mob-specific channels** for types that have them, such as a zombie's raised arms (aggressive), a sheep's wool, a wolf sitting, or what an enderman carries.
-- **Look switches** for some types: a charged creeper (which also blasts harder), an end crystal's bedrock base, an arrow's critical trail.
+- **Look switches** for some types: a charged creeper (which also blasts harder), an end crystal's bedrock base, an arrow's critical trail, and **Baby** for mobs that have babies.
+- **Content** for props: the block a falling block or block display shows (in command syntax), the item a dropped item or item display shows, the text of a text display, and whether a display turns to face the camera.
 - **Variables** of your own: under **Variables**, **Add** takes a name, a type and a starting value, such as `lives int 3`. Types are `int`, `float` and `bool`. Key them like any other channel and use them in event conditions (see below).
 
 Health is not real health. It is a number that attacks subtract from and that can trigger a death at 0 when auto death is on.
@@ -93,13 +94,16 @@ The inspector's event buttons add an event at the playhead:
 - **explode** sets off TNT, creepers, end crystals and fireballs. **ignite** makes a creeper swell and explode after its fuse.
 - **swing** plays an arm swing.
 - **Riding** mounts the nearest other object, or dismounts.
+- **defuse** (creepers) stops a swell before the fuse runs out, so the creeper doesn't go off.
+- **teleport to...** moves the object to `x y z` in one tick, with the vanilla teleport particles. It keys the position, so it works outside motion clips.
+- **throw...** throws the object to come to rest at `x y z`, in a baked arc. TNT flies with TNT physics and explodes where it lands; anything else flies like a knocked-back mob.
 - **Mob events** appear as extra buttons for the types that have them: an iron golem offering a flower, a sheep eating grass, a wolf shaking off water, a warden's sonic charge, a ravager stunned, hearts, a villager's moods, and more. Iron golems, ravagers, hoglins and wardens use their own attack animation for attack events. The list lives in `data/scenescripter/mob_events.json` inside the mod.
 
 Each event you add is listed in the inspector with a condition button and an **x** to remove it. A condition makes the event happen only when it holds at that tick, for example `lives <= 0` or `scene.act == 2`, where `scene.` reads a variable on the scene track. The operators are `<`, `<=`, `==`, `!=`, `>=` and `>`, and `true` or `false` compare switches. Built-in channels such as `health` work too. A condition that can't be read, such as a misspelt name, lets the event happen, so a typo never hides an event.
 
 Results the solver works out are marked "auto" and in purple. Editing one by hand turns it into your own key, and the solver leaves it alone.
 
-**Rules** decide how events resolve: with nothing selected, the inspector shows the scene's rules (attack mode, friendly fire, auto death, and whether blasts break blocks, hurt players or start fires). Each object can override the attack mode and friendly fire, and objects in the same **group** don't hurt each other unless friendly fire is on. A group can also be moved (**Move group**, by `x y z` blocks) or retimed (**Retime group**, by ticks) in one step.
+**Rules** decide how events resolve: with nothing selected, the inspector shows the scene's rules (attack mode, friendly fire, auto death, and whether blasts break blocks, hurt players, start fires or drop items). Each object can override the attack mode and friendly fire, and objects in the same **group** don't hurt each other unless friendly fire is on. A group can also be moved (**Move group**, by `x y z` blocks) or retimed (**Retime group**, by ticks) in one step.
 
 ## TNT and explosions
 
@@ -113,7 +117,7 @@ Choose **Blocks**, select the object that does the work, and click blocks in the
 
 ## Performance capture
 
-Select an object and use **Capture** in the inspector. The editor closes, you are placed where the object is, the scene rewinds by the pre-roll, and a countdown runs while everything plays in sync. Then act the part out: walk, sprint, sneak, jump, swing, hit other actors, break and place blocks. You can't be hurt, and your block interactions become scene events instead of changing the world. Press **Right Ctrl** to stop.
+Select an object and use **Capture** in the inspector. The editor closes, you are placed where the object is, the scene rewinds by the pre-roll, and a countdown runs while everything plays in sync. Then act the part out: walk, sprint, sneak, jump, swing, draw a bow, eat, raise a shield, switch items, hit other actors, break and place blocks. You can't be hurt, and your block interactions become scene events instead of changing the world. Press **Right Ctrl** to stop.
 
 The take is stored with the scene and applied to the object as keyframes. From the take list in the inspector you can re-apply any take as thinned keys, raw keys every tick, or a motion path fitted to your route.
 

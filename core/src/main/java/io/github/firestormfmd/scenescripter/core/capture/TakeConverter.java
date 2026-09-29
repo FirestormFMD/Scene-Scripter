@@ -242,7 +242,7 @@ public final class TakeConverter {
 		}
 	}
 
-	/** Sneaking, sprinting, pose and equipment: a key at the start and wherever they change. */
+	/** Sneaking, sprinting, pose, equipment and item use: a key at the start and wherever they change. */
 	private static void keyStates(SceneObject o, List<CaptureSample> s) {
 		keyChanges(o.channel(BuiltInChannels.SNEAKING), s, CaptureSample::sneaking);
 		keyChanges(o.channel(BuiltInChannels.SPRINTING), s, CaptureSample::sprinting);
@@ -250,6 +250,9 @@ public final class TakeConverter {
 		for (ChannelSpec<String> slot : SLOTS) {
 			String key = slot.name().substring("equipment.".length());
 			keyChanges(o.channel(slot), s, c -> c.equipment().getOrDefault(key, ""));
+		}
+		if (s.stream().anyMatch(c -> !c.equipment().getOrDefault(CaptureSample.USE_ITEM, "").isEmpty())) {
+			keyChanges(o.channel(BuiltInChannels.USE_ITEM), s, c -> c.equipment().getOrDefault(CaptureSample.USE_ITEM, ""));
 		}
 	}
 

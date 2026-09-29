@@ -9,6 +9,7 @@
 		"CreeperAccessor",
 		"EnderManAccessor",
 		"EntityMixin",
+		"FallingBlockAccessor",
 		"LightningBoltMixin",
 		"LivingEntityMixin",
 		"MannequinAccessor",
