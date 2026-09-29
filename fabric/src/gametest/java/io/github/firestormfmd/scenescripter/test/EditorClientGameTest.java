@@ -46,6 +46,8 @@ public class EditorClientGameTest implements FabricClientGameTest {
 			context.waitTicks(5);
 			Path closed = context.takeScreenshot("scenescripter-editor-closed");
 
+			Screenshots.printThumbnail(open, "editor-open");
+			Screenshots.printThumbnail(help, "editor-help");
 			expectChanged(closed, open, 0.10, "the editor panels");
 			expectChanged(open, help, 0.02, "the F1 shortcut list");
 		}

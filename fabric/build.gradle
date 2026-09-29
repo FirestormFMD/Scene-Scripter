@@ -30,7 +30,31 @@ fabricApi {
 	}
 }
 
+repositories {
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = 'Modrinth'
+				url = 'https://api.modrinth.com/maven'
+			}
+		}
+		filter {
+			includeGroup 'maven.modrinth'
+		}
+	}
+}
+
+// The recorders the client game test can run beside, by Modrinth version ID (the 26.2 builds).
+// `./gradlew :fabric:runClientGameTest -Precorder=flashback` (or replaymod) adds one to the game; it is never
+// part of the mod.
+def recorders = [flashback: 'Um7qd3Na', replaymod: '5YS1OgDP']
+
 dependencies {
+	def recorder = project.findProperty('recorder')
+	if (recorders.containsKey(recorder)) {
+		localRuntime "maven.modrinth:${recorder}:${recorders[recorder]}"
+	}
+
 	// To change the versions see the gradle.properties file
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"

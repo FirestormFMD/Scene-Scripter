@@ -11,7 +11,9 @@
 			"io.github.firestormfmd.scenescripter.test.BlastGameTests"
 		],
 		"fabric-client-gametest": [
-			"io.github.firestormfmd.scenescripter.test.EditorClientGameTest"
+			"io.github.firestormfmd.scenescripter.test.EditorClientGameTest",
+			"io.github.firestormfmd.scenescripter.test.MannequinClientGameTest",
+			"io.github.firestormfmd.scenescripter.test.RecorderClientGameTest"
 		]
 	},
 	"depends": {
