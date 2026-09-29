@@ -50,6 +50,9 @@ public final class SceneSession {
 	private long savedRevision;
 	private boolean actorListChanged = true;
 	private boolean stateChanged = true;
+	/** Playing for a recorder, from {@link #playForRecording} until playback stops. */
+	private boolean recordingRun;
+	private boolean recordingRunChanged;
 
 	public SceneSession(String name, Scene scene, ServerLevel level, JournalFile journalFile) {
 		this.name = name;
@@ -214,7 +217,22 @@ public final class SceneSession {
 			applyStep(step.get());
 			stateChanged = true;
 		}
+		if (recordingRun && !clock.isPlaying()) {
+			recordingRun = false;
+			recordingRunChanged = true;
+		}
 		actors.settle(evaluator, clock.tick());
+	}
+
+	/** Whether the scene is playing for a recorder: from Record until it ends, loops are stopped, or it's paused. */
+	public boolean recordingRun() {
+		return recordingRun;
+	}
+
+	public boolean consumeRecordingRunChanged() {
+		boolean c = recordingRunChanged;
+		recordingRunChanged = false;
+		return c;
 	}
 
 	private void refreshAfterEdit() {
@@ -365,6 +383,8 @@ public final class SceneSession {
 		holdTicks = Math.max(0, preroll);
 		clock.play();
 		stateChanged = true;
+		recordingRun = true;
+		recordingRunChanged = true;
 	}
 
 	/** Back to the start, paused, with the world as it was before the scene's first change. */

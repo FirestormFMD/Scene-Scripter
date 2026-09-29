@@ -33,6 +33,7 @@ public class SceneScripterClient implements ClientModInitializer {
 			if (io.github.firestormfmd.scenescripter.client.editor.EditorMode.isOpen()) {
 				ClientScene.applyScrubOverrides();
 			}
+			FlashbackRecording.tick();
 			while (TOGGLE_EDITOR.consumeClick()) {
 				if (ClientScene.capturing()) {
 					// While performing, the editor key ends the take instead.
@@ -51,6 +52,8 @@ public class SceneScripterClient implements ClientModInitializer {
 				ClientScene.onActorIds(payload));
 		ClientPlayNetworking.registerGlobalReceiver(Payloads.SceneList.TYPE, (payload, context) ->
 				ClientScene.onSceneList(payload));
+		ClientPlayNetworking.registerGlobalReceiver(Payloads.RecordingRun.TYPE, (payload, context) ->
+				FlashbackRecording.onRecordingRun(payload.active()));
 		ClientPlayNetworking.registerGlobalReceiver(Payloads.CaptureState.TYPE, (payload, context) -> {
 			ClientScene.onCaptureState(payload);
 			if (payload.active()) {
@@ -62,6 +65,7 @@ public class SceneScripterClient implements ClientModInitializer {
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			EditorMode.reset();
 			ClientScene.reset();
+			FlashbackRecording.reset();
 		});
 	}
 }

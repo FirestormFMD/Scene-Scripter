@@ -255,6 +255,19 @@ public final class Payloads {
 	}
 
 	/** Whether this player is performing an object right now, so the client closes the editor and Right Ctrl stops. */
+	/** Tells the player who pressed Record that the scene started or stopped playing for the recorder. */
+	public record RecordingRun(boolean active) implements CustomPacketPayload {
+		public static final Type<RecordingRun> TYPE = payloadType("recording_run");
+		public static final StreamCodec<FriendlyByteBuf, RecordingRun> CODEC = StreamCodec.of(
+				(buf, p) -> buf.writeBoolean(p.active()),
+				buf -> new RecordingRun(buf.readBoolean()));
+
+		@Override
+		public Type<RecordingRun> type() {
+			return TYPE;
+		}
+	}
+
 	public record CaptureState(boolean active, String objectId) implements CustomPacketPayload {
 		public static final Type<CaptureState> TYPE = payloadType("capture_state");
 		public static final StreamCodec<FriendlyByteBuf, CaptureState> CODEC = StreamCodec.of(
@@ -302,6 +315,7 @@ public final class Payloads {
 		PayloadTypeRegistry.serverboundPlay().register(Capture.TYPE, Capture.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(EditorView.TYPE, EditorView.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(CaptureState.TYPE, CaptureState.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(RecordingRun.TYPE, RecordingRun.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(SceneData.TYPE, SceneData.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(PlaybackState.TYPE, PlaybackState.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(ActorIds.TYPE, ActorIds.CODEC);

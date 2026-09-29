@@ -108,12 +108,13 @@ public final class SceneCommands {
 								.executes(ctx -> tutorial(ctx, StringArgumentType.getString(ctx, "name")))))
 				.then(literal("record")
 						.executes(ctx -> withSession(ctx, s -> {
-							s.playForRecording(40);
+							SceneManager.get().orElseThrow().playForRecording(ctx.getSource().getPlayer(), 40);
 							return "Playing for recording after a 2s hold";
 						}))
 						.then(argument("preroll", IntegerArgumentType.integer(0, 20 * 60))
 								.executes(ctx -> withSession(ctx, s -> {
-									s.playForRecording(IntegerArgumentType.getInteger(ctx, "preroll"));
+									SceneManager.get().orElseThrow().playForRecording(ctx.getSource().getPlayer(),
+											IntegerArgumentType.getInteger(ctx, "preroll"));
 									return "Playing for recording";
 								}))))
 				.then(literal("reset").executes(ctx -> withSession(ctx, s -> {
@@ -127,7 +128,7 @@ public final class SceneCommands {
 									if (m.session().map(s -> !s.name().equals(name)).orElse(true)) {
 										m.open(name, ctx.getSource().getLevel());
 									}
-									m.session().orElseThrow().playForRecording(40);
+									m.playForRecording(ctx.getSource().getPlayer(), 40);
 									return "Playing " + name;
 								}))))
 				.then(literal("import")

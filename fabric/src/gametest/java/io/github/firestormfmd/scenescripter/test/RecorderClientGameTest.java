@@ -24,7 +24,7 @@ import net.fabricmc.loader.api.FabricLoader;
  * Runs only beside a recorder (CI adds Flashback or Replay Mod with {@code -Precorder=...}): plays the tutorial
  * scene and opens and closes the editor with the recorder loaded, checks that the recorder saved a recording that
  * holds packets, and plays it back in the recorder's viewer to see the scene's actors in it. Replay Mod records
- * singleplayer by itself; Flashback is started and finished the way its recording keys do.
+ * singleplayer by itself; Flashback is started and finished by Scene Scripter's Record.
  */
 @SuppressWarnings("UnstableApiUsage")
 public class RecorderClientGameTest implements FabricClientGameTest {
@@ -45,11 +45,14 @@ public class RecorderClientGameTest implements FabricClientGameTest {
 			singleplayer.getServer().runCommand("gamemode creative @a");
 			singleplayer.getServer().runCommand("scene tutorial recorded");
 			if (flashback) {
-				// Staged first, then recorded, the way the guide has it.
+				// Record, run as the player, starts Flashback's recording with the scene.
 				context.waitTicks(5);
-				context.runOnClient(client -> startFlashback());
+				context.runOnClient(client -> flashbackQuicksave());
+				singleplayer.getServer().runCommand("execute as @p run scene record 20");
+				context.waitFor(client -> flashbackRecording(), 100);
+			} else {
+				singleplayer.getServer().runCommand("scene play");
 			}
-			singleplayer.getServer().runCommand("scene play");
 			context.waitTicks(100);
 			Screenshots.printThumbnail(context.takeScreenshot("scenescripter-with-" + recorder), "with-" + recorder);
 
@@ -60,13 +63,16 @@ public class RecorderClientGameTest implements FabricClientGameTest {
 			Screenshots.printThumbnail(context.takeScreenshot("scenescripter-editor-with-" + recorder), "editor-with-" + recorder);
 			context.getInput().pressKey(GLFW.GLFW_KEY_RIGHT_CONTROL);
 			context.waitFor(client -> client.gui.screen() == null, 100);
-			singleplayer.getServer().runCommand("scene play");
-			context.waitTicks(100);
+			if (flashback) {
+				// And finishes it a moment after the scene has played through.
+				context.waitFor(client -> !flashbackRecording(), 20 * 30);
+				System.out.println("Record started and finished the Flashback recording");
+			} else {
+				singleplayer.getServer().runCommand("scene play");
+				context.waitTicks(100);
+			}
 			System.out.println("Recordings folder while in the world: " + files(recordings).stream()
 					.map(p -> recordings.relativize(p) + " " + size(p)).toList());
-			if (flashback) {
-				context.runOnClient(client -> flashback("finishRecordingReplay"));
-			}
 		}
 		if (flashback) {
 			Path found = files(flashbackReplays).stream()
@@ -148,21 +154,22 @@ public class RecorderClientGameTest implements FabricClientGameTest {
 		context.waitFor(client -> client.level == null, 20 * 30);
 	}
 
-	/**
-	 * Starts a Flashback recording, as its Start Recording key does, set to save straight to its replays folder when
-	 * finished instead of asking for a name.
-	 */
-	private static void startFlashback() {
+	/** Sets Flashback to save a finished recording straight to its replays folder instead of asking for a name. */
+	private static void flashbackQuicksave() {
 		try {
 			Object config = flashback("getConfig");
 			Object controls = config.getClass().getField("recordingControls").get(config);
 			controls.getClass().getField("quicksave").setBoolean(controls, true);
-			flashback("startRecordingReplay");
-			if (Class.forName("com.moulberry.flashback.Flashback").getField("RECORDER").get(null) == null) {
-				throw new AssertionError("Flashback did not start recording");
-			}
 		} catch (ReflectiveOperationException e) {
-			throw new AssertionError("Flashback's recording could not be started", e);
+			throw new AssertionError("Flashback's recording settings could not be reached", e);
+		}
+	}
+
+	private static boolean flashbackRecording() {
+		try {
+			return Class.forName("com.moulberry.flashback.Flashback").getField("RECORDER").get(null) != null;
+		} catch (ReflectiveOperationException e) {
+			throw new AssertionError("Flashback's recorder could not be reached", e);
 		}
 	}
 

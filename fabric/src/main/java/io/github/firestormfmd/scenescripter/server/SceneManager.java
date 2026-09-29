@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.google.gson.JsonObject;
+import org.jspecify.annotations.Nullable;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.Registries;
@@ -49,6 +50,8 @@ public final class SceneManager {
 	private final SceneStorage storage;
 	private SceneSession session;
 	private final Set<UUID> editors = new HashSet<>();
+	/** The player who last asked to play the scene for recording, told when that run starts and ends. */
+	private @Nullable UUID recorder;
 	private final Map<UUID, Chunks.Assembler> incomingEdits = new HashMap<>();
 	private final Map<UUID, CaptureSession> captures = new HashMap<>();
 	/** Objects each open editor has hidden. Only applied while that editor is open, so never in a recording. */
@@ -208,6 +211,9 @@ public final class SceneManager {
 			endCapture(c, true);
 		}
 		saveQuietly();
+		if (session.recordingRun()) {
+			sendRecordingRun(false);
+		}
 		session.close();
 		session = null;
 		broadcastScene();
@@ -248,6 +254,9 @@ public final class SceneManager {
 		}
 		if (session.consumeActorListChanged()) {
 			broadcastActorIds();
+		}
+		if (session.consumeRecordingRunChanged()) {
+			sendRecordingRun(session.recordingRun());
 		}
 		if (++ticksSinceSave >= AUTOSAVE_TICKS) {
 			ticksSinceSave = 0;
@@ -329,11 +338,7 @@ public final class SceneManager {
 								+ session.clock().tick() + " are now part of the world"));
 					}
 				}
-				case Payloads.SceneCommand.RECORD -> {
-					if (session != null) {
-						session.playForRecording(c.length());
-					}
-				}
+				case Payloads.SceneCommand.RECORD -> playForRecording(player, c.length());
 				case Payloads.SceneCommand.RESET -> {
 					if (session != null) {
 						session.reset();
@@ -545,6 +550,32 @@ public final class SceneManager {
 
 	private static void error(ServerPlayer player, String message) {
 		player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.RED));
+	}
+
+	/**
+	 * Plays the open scene from the start for a recorder, after holding the first frame for {@code preroll} ticks.
+	 * The player who asked (null for command blocks and the console) is told when the run starts and ends, so their
+	 * client can start and finish a Flashback recording with it.
+	 */
+	public void playForRecording(@Nullable ServerPlayer player, int preroll) {
+		if (session == null) {
+			return;
+		}
+		if (session.recordingRun() && recorder != null && (player == null || !recorder.equals(player.getUUID()))) {
+			sendRecordingRun(false);
+		}
+		recorder = player == null ? null : player.getUUID();
+		session.playForRecording(preroll);
+	}
+
+	private void sendRecordingRun(boolean active) {
+		ServerPlayer player = recorder == null ? null : server.getPlayerList().getPlayer(recorder);
+		if (player != null && ServerPlayNetworking.canSend(player, Payloads.RecordingRun.TYPE)) {
+			ServerPlayNetworking.send(player, new Payloads.RecordingRun(active));
+		}
+		if (!active) {
+			recorder = null;
+		}
 	}
 
 	// ---- Sending ----
