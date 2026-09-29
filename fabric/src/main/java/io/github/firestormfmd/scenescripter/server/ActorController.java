@@ -55,6 +55,8 @@ public final class ActorController {
 	private final Map<String, Boolean> wasDead = new HashMap<>();
 	private final Map<String, Double> stepDistance = new HashMap<>();
 	private final Set<String> reportedMissingTypes = new HashSet<>();
+	/** The spawn-time look each actor was made with; a change means the actor is made again. */
+	private final Map<String, Map<String, String>> spawnedLook = new HashMap<>();
 	/** Objects a player is performing right now; the player stands in for their actors. */
 	private final Set<String> hidden = new HashSet<>();
 
@@ -100,7 +102,7 @@ public final class ActorController {
 			boolean visible = s.exists() && !gone && !hidden.contains(o.id());
 			Entity e = actors.get(o.id());
 
-			if (e != null && (e.isRemoved() || !typeMatches(e, o))) {
+			if (e != null && (e.isRemoved() || !typeMatches(e, o) || !o.appearance().equals(spawnedLook.get(o.id())))) {
 				discard(o.id());
 				e = null;
 				changed = true;
@@ -147,6 +149,7 @@ public final class ActorController {
 				actors.get(id).discard();
 				it.remove();
 				wasDead.remove(id);
+				spawnedLook.remove(id);
 				changed = true;
 			}
 		}
@@ -228,11 +231,13 @@ public final class ActorController {
 	public void removeAll() {
 		actors.values().forEach(Entity::discard);
 		actors.clear();
+		spawnedLook.clear();
 		wasDead.clear();
 		stepDistance.clear();
 	}
 
 	private void discard(String objectId) {
+		spawnedLook.remove(objectId);
 		Entity e = actors.remove(objectId);
 		if (e != null) {
 			e.discard();
@@ -268,7 +273,25 @@ public final class ActorController {
 		if (e instanceof Mannequin mannequin) {
 			MannequinAccessor access = (MannequinAccessor) mannequin;
 			String skin = o.appearance().getOrDefault("skin", "");
-			if (!skin.isBlank()) {
+			String texture = o.appearance().getOrDefault("skin_texture", "");
+			String model = o.appearance().getOrDefault("model", "");
+			if (!texture.isBlank() || !model.isBlank()) {
+				// A skin from a resource pack texture (assets/<namespace>/textures/<path>.png), optionally with a name
+				// and the slim or wide arm model.
+				com.google.gson.JsonObject profile = new com.google.gson.JsonObject();
+				if (!skin.isBlank()) {
+					profile.addProperty("name", skin);
+				}
+				if (!texture.isBlank()) {
+					profile.addProperty("texture", texture.trim());
+				}
+				if (!model.isBlank()) {
+					profile.addProperty("model", model.trim());
+				}
+				ResolvableProfile.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, profile).resultOrPartial(
+						err -> SceneScripter.LOGGER.warn("Bad skin for {}: {}", o.id(), err))
+						.ifPresent(access::scenescripter$setProfile);
+			} else if (!skin.isBlank()) {
 				access.scenescripter$setProfile(ResolvableProfile.createUnresolved(skin));
 			}
 			access.scenescripter$setHideDescription(true);
@@ -279,6 +302,7 @@ public final class ActorController {
 			return null;
 		}
 		actors.put(o.id(), e);
+		spawnedLook.put(o.id(), Map.copyOf(o.appearance()));
 		return e;
 	}
 

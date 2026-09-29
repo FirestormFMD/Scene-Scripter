@@ -111,6 +111,7 @@ public final class Payloads {
 		/** Plays from the start for a recorder, holding the first frame for {@code length} ticks. */
 		public static final int RECORD = 8;
 		public static final int RESET = 9;
+		public static final int EXPORT = 10;
 
 		public static final Type<SceneCommand> TYPE = payloadType("scene_command");
 		public static final StreamCodec<FriendlyByteBuf, SceneCommand> CODEC = StreamCodec.of(
@@ -267,6 +268,29 @@ public final class Payloads {
 		}
 	}
 
+	/** Objects this editor has hidden (or not soloed); their actors are removed while the editor is open. */
+	public record EditorView(List<String> hidden) implements CustomPacketPayload {
+		public static final Type<EditorView> TYPE = payloadType("editor_view");
+		public static final StreamCodec<FriendlyByteBuf, EditorView> CODEC = StreamCodec.of(
+				(buf, p) -> {
+					buf.writeVarInt(p.hidden().size());
+					p.hidden().forEach(id -> buf.writeUtf(id, 128));
+				},
+				buf -> {
+					int n = Math.min(buf.readVarInt(), 4096);
+					List<String> ids = new ArrayList<>(n);
+					for (int i = 0; i < n; i++) {
+						ids.add(buf.readUtf(128));
+					}
+					return new EditorView(ids);
+				});
+
+		@Override
+		public Type<EditorView> type() {
+			return TYPE;
+		}
+	}
+
 	public static void register() {
 		PayloadTypeRegistry.serverboundPlay().register(EditorState.TYPE, EditorState.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(Edit.TYPE, Edit.CODEC);
@@ -274,6 +298,7 @@ public final class Payloads {
 		PayloadTypeRegistry.serverboundPlay().register(Playback.TYPE, Playback.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(SceneCommand.TYPE, SceneCommand.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(Capture.TYPE, Capture.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(EditorView.TYPE, EditorView.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(CaptureState.TYPE, CaptureState.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(SceneData.TYPE, SceneData.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(PlaybackState.TYPE, PlaybackState.CODEC);

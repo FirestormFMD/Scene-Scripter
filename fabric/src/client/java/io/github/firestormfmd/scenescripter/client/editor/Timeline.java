@@ -34,6 +34,15 @@ final class Timeline {
 	private int dragFrom = -1;
 	private int dragTo = -1;
 	private int lastSeek = -1;
+	/** Box selection of keys, in screen coordinates. */
+	private boolean boxing;
+	private double boxX0;
+	private double boxY0;
+	private double boxX1;
+	private double boxY1;
+	private record KeyPos(String channel, int tick, int x, int y) {
+	}
+	private final List<KeyPos> keyPositions = new ArrayList<>();
 	/** Curve editing: the key or handle being dragged ({@code 0} key, {@code -1} in handle, {@code 1} out handle). */
 	private String curveChannel;
 	private int curveKey = -1;
@@ -112,6 +121,12 @@ final class Timeline {
 			curves(o, curveChannel(o), rowY);
 		} else {
 			rowY = objectRows(o, rowY);
+		}
+
+		if (boxing) {
+			int bx0 = (int) Math.min(boxX0, boxX1);
+			int by0 = (int) Math.min(boxY0, boxY1);
+			ui.fill(bx0, by0, (int) Math.abs(boxX1 - boxX0), (int) Math.abs(boxY1 - boxY0), 0x406EC8FF);
 		}
 
 		int head = tickToX(ClientScene.tick());
@@ -209,7 +224,17 @@ final class Timeline {
 			rowY += Ui.ROW_HEIGHT;
 		}
 
-		// Keyframed channels.
+		// Keyframed channels. Dragging on empty track space draws a box that selects the keys inside it.
+		keyPositions.clear();
+		int rowsTop = rowY;
+		ui.area(trackX(), rowsTop, trackW(), Math.max(0, bottom + Ui.ROW_HEIGHT - rowsTop), (b, mx, my) -> {
+			if (b == 0) {
+				boxing = true;
+				boxX0 = boxX1 = mx;
+				boxY0 = boxY1 = my;
+				EditorState.selectedKeys.clear();
+			}
+		});
 		List<Map.Entry<String, Channel<?>>> rows = new ArrayList<>();
 		for (Map.Entry<String, Channel<?>> e : o.channels().entrySet()) {
 			if (!e.getValue().isEmpty()) {
@@ -225,12 +250,17 @@ final class Timeline {
 			ui.text(ui.fit(name, LABELS - 8), x + 6, rowY + 2, rowSelected ? Ui.KEY : Ui.TEXT);
 			ui.area(x + 2, rowY, LABELS - 4, Ui.ROW_HEIGHT, (b, mx, my) -> EditorState.selectedChannel = name);
 			for (Keyframe<?> k : row.getValue().keys()) {
-				int kt = name.equals(dragChannel) && k.tick() == dragFrom && dragTo >= 0 ? dragTo : k.tick();
+				var ref = new EditorState.KeyRef(name, k.tick());
+				boolean inSelection = EditorState.selectedKeys.contains(ref);
+				boolean moving = dragChannel != null && dragTo >= 0 && (name.equals(dragChannel) && k.tick() == dragFrom
+						|| inSelection && EditorState.selectedKeys.contains(new EditorState.KeyRef(dragChannel, dragFrom)));
+				int kt = moving ? k.tick() + dragTo - dragFrom : k.tick();
 				int kx = tickToX(kt);
 				if (kx < trackX() - 3 || kx > trackX() + trackW() + 3) {
 					continue;
 				}
-				boolean selected = rowSelected && k.tick() == EditorState.selectedKeyTick;
+				keyPositions.add(new KeyPos(name, k.tick(), kx, rowY + 5));
+				boolean selected = inSelection || rowSelected && k.tick() == EditorState.selectedKeyTick;
 				int color = k.isGenerated() ? 0xFFB06CFF : selected ? 0xFFFFFFFF : Ui.KEY;
 				ui.diamond(kx, rowY + 5, 3, color, true);
 				int keyTick = k.tick();
@@ -242,6 +272,11 @@ final class Timeline {
 						EditActions.cycleInterpolation(o, name, keyTick);
 						screen.status("Curve: " + nextInterpolationName(o, name, keyTick));
 					} else {
+						var clicked = new EditorState.KeyRef(name, keyTick);
+						if (!EditorState.selectedKeys.contains(clicked)) {
+							EditorState.selectedKeys.clear();
+							EditorState.selectedKeys.add(clicked);
+						}
 						dragChannel = name;
 						dragFrom = keyTick;
 						dragTo = -1;
@@ -464,6 +499,20 @@ final class Timeline {
 				.orElse("");
 	}
 
+	/** Moves several keys by the same number of ticks: all are lifted first so none lands on another's old place. */
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	private static void moveKeys(SceneObject o, List<EditorState.KeyRef> keys, int delta) {
+		List<Object[]> lifted = new ArrayList<>();
+		for (var ref : keys) {
+			o.channel(ref.channel()).ifPresent(ch -> ch.remove(ref.tick()).ifPresent(k -> lifted.add(new Object[] {ch, k})));
+		}
+		for (Object[] pair : lifted) {
+			Channel ch = (Channel) pair[0];
+			Keyframe<?> k = (Keyframe<?>) pair[1];
+			ch.putUnchecked(new Keyframe<>(Math.max(0, k.tick() + delta), k.value(), k.interpolation(), k.handles(), null));
+		}
+	}
+
 	private void seekTo(int tick) {
 		int t = Math.max(0, tick);
 		if (t != lastSeek) {
@@ -477,6 +526,11 @@ final class Timeline {
 	}
 
 	boolean mouseDragged(double mx, double my, int button) {
+		if (boxing) {
+			boxX1 = mx;
+			boxY1 = my;
+			return true;
+		}
 		if (curveDragging && button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
 			curveDragTick = xToTickExact(mx);
 			curveDragValue = yToValue(my);
@@ -494,6 +548,22 @@ final class Timeline {
 	}
 
 	boolean mouseReleased(double mx, double my, int button) {
+		if (boxing) {
+			boxing = false;
+			double x0 = Math.min(boxX0, boxX1);
+			double x1 = Math.max(boxX0, boxX1);
+			double y0 = Math.min(boxY0, boxY1);
+			double y1 = Math.max(boxY0, boxY1);
+			for (KeyPos k : keyPositions) {
+				if (k.x() >= x0 && k.x() <= x1 && k.y() >= y0 - 4 && k.y() <= y1 + 4) {
+					EditorState.selectedKeys.add(new EditorState.KeyRef(k.channel(), k.tick()));
+				}
+			}
+			if (!EditorState.selectedKeys.isEmpty()) {
+				screen.status(EditorState.selectedKeys.size() + " keys selected: drag to move, Ctrl+C to copy, Delete to remove");
+			}
+			return true;
+		}
 		if (curveDragging) {
 			finishCurveDrag();
 			return true;
@@ -508,7 +578,19 @@ final class Timeline {
 				String channel = dragChannel;
 				int from = dragFrom;
 				int to = dragTo;
-				ClientScene.object(EditorState.selectedObject).ifPresent(o -> EditActions.moveKey(o, channel, from, to));
+				var grabbed = new EditorState.KeyRef(channel, from);
+				if (EditorState.selectedKeys.size() > 1 && EditorState.selectedKeys.contains(grabbed)) {
+					int delta = to - from;
+					var moving = List.copyOf(EditorState.selectedKeys);
+					ClientScene.object(EditorState.selectedObject).ifPresent(o -> EditActions.change(o,
+							"Move " + moving.size() + " keys", c -> moveKeys(c, moving, delta)));
+					EditorState.selectedKeys.clear();
+					moving.forEach(k -> EditorState.selectedKeys.add(new EditorState.KeyRef(k.channel(), Math.max(0, k.tick() + delta))));
+				} else {
+					ClientScene.object(EditorState.selectedObject).ifPresent(o -> EditActions.moveKey(o, channel, from, to));
+					EditorState.selectedKeys.clear();
+					EditorState.selectedKeys.add(new EditorState.KeyRef(channel, to));
+				}
 				EditorState.selectedKeyTick = to;
 			}
 			dragChannel = null;

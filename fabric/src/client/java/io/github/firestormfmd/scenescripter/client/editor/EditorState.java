@@ -28,6 +28,43 @@ public final class EditorState {
 	public static @Nullable String hoveredObject;
 	public static Tool tool = Tool.SELECT;
 	public static BlockAction blockAction = BlockAction.BREAK;
+	/** Objects hidden in the editor; their actors disappear only while the editor is open. */
+	public static final java.util.Set<String> hidden = new java.util.HashSet<>();
+	/** Objects that can't be selected or dragged in the viewport. */
+	public static final java.util.Set<String> locked = new java.util.HashSet<>();
+	/** The only object shown, or null. */
+	public static @Nullable String solo;
+	/** Selected keyframes as channel name and tick, for moving, copying and deleting several at once. */
+	public static final java.util.Set<KeyRef> selectedKeys = new java.util.HashSet<>();
+	/** Copied keyframes, relative to the first one's tick. */
+	public static final List<CopiedKey> clipboard = new ArrayList<>();
+	public static Snap snap = Snap.OFF;
+
+	public record KeyRef(String channel, int tick) {
+	}
+
+	public record CopiedKey(String channel, io.github.firestormfmd.scenescripter.core.anim.ValueType<?> type, Object defaultValue,
+			int offset, io.github.firestormfmd.scenescripter.core.anim.Keyframe<?> key) {
+	}
+
+	/** Grid that dragged and placed things snap to. */
+	public enum Snap {
+		OFF, HALF, BLOCK;
+
+		public Snap next() {
+			return values()[(ordinal() + 1) % values().length];
+		}
+
+		/** Snaps x and z to the grid; y stays on the ground. */
+		public Vec3 apply(Vec3 v) {
+			return switch (this) {
+				case OFF -> v;
+				case HALF -> new Vec3(Math.round(v.x() * 2) / 2.0, v.y(), Math.round(v.z() * 2) / 2.0);
+				case BLOCK -> new Vec3(Math.floor(v.x()) + 0.5, v.y(), Math.floor(v.z()) + 0.5);
+			};
+		}
+	}
+
 	/** Shows the selected numeric channel as a curve instead of rows of keys. */
 	public static boolean curveMode;
 	public static io.github.firestormfmd.scenescripter.core.crowd.Formation crowdFormation =
@@ -59,7 +96,19 @@ public final class EditorState {
 	private EditorState() {
 	}
 
+	/** Objects whose actors the server should hide while this editor is open: hidden ones, or all but the solo. */
+	public static java.util.List<String> effectiveHidden(io.github.firestormfmd.scenescripter.core.scene.Scene scene) {
+		java.util.List<String> out = new ArrayList<>();
+		for (var o : scene.objects()) {
+			if (hidden.contains(o.id()) || (solo != null && !solo.equals(o.id()))) {
+				out.add(o.id());
+			}
+		}
+		return out;
+	}
+
 	public static void selectObject(@Nullable String id) {
+		selectedKeys.clear();
 		selectedObject = id;
 		selectedPath = null;
 		selectedChannel = null;

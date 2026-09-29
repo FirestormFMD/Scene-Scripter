@@ -77,4 +77,8 @@ public final class ClientNet {
 	public static void useTake(String takeId, String mode) {
 		ClientPlayNetworking.send(new Payloads.Capture(Payloads.Capture.USE_TAKE, "", 0, -1, 0, false, takeId, mode));
 	}
+
+	public static void editorView(java.util.List<String> hidden) {
+		ClientPlayNetworking.send(new Payloads.EditorView(hidden));
+	}
 }

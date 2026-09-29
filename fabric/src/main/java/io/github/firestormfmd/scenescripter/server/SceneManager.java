@@ -51,6 +51,8 @@ public final class SceneManager {
 	private final Set<UUID> editors = new HashSet<>();
 	private final Map<UUID, Chunks.Assembler> incomingEdits = new HashMap<>();
 	private final Map<UUID, CaptureSession> captures = new HashMap<>();
+	/** Objects each open editor has hidden. Only applied while that editor is open, so never in a recording. */
+	private final Map<UUID, Set<String>> editorHidden = new HashMap<>();
 	private long sentRevision = -1;
 	private int ticksSinceSave;
 
@@ -264,6 +266,9 @@ public final class SceneManager {
 		} else {
 			editors.remove(player.getUUID());
 			incomingEdits.remove(player.getUUID());
+			if (editorHidden.remove(player.getUUID()) != null && session != null) {
+				updateHidden();
+			}
 		}
 	}
 
@@ -332,6 +337,12 @@ public final class SceneManager {
 				case Payloads.SceneCommand.RESET -> {
 					if (session != null) {
 						session.reset();
+					}
+				}
+				case Payloads.SceneCommand.EXPORT -> {
+					if (session != null) {
+						var out = storage.export(session.name(), session.scene());
+						player.sendSystemMessage(Component.literal("Exported to " + out));
 					}
 				}
 				case Payloads.SceneCommand.FIT_BOUNDS -> {
@@ -477,8 +488,18 @@ public final class SceneManager {
 				+ " (" + take.samples().size() + " ticks)"));
 	}
 
+	public void onEditorView(ServerPlayer player, List<String> hidden) {
+		if (editors.contains(player.getUUID())) {
+			editorHidden.put(player.getUUID(), new HashSet<>(hidden));
+			if (session != null) {
+				updateHidden();
+			}
+		}
+	}
+
 	private void updateHidden() {
 		Set<String> hidden = new HashSet<>();
+		editorHidden.values().forEach(hidden::addAll);
 		for (CaptureSession c : captures.values()) {
 			if (c.passes() == 0) {
 				hidden.add(c.objectId);
@@ -657,6 +678,7 @@ public final class SceneManager {
 
 	public void onLeave(ServerPlayer player) {
 		editors.remove(player.getUUID());
+		editorHidden.remove(player.getUUID());
 		incomingEdits.remove(player.getUUID());
 		CaptureSession c = captures.get(player.getUUID());
 		if (c != null) {

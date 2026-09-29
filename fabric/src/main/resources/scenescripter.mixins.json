@@ -6,6 +6,7 @@
 		"AbstractArrowAccessor",
 		"ChunkMapMixin",
 		"CollidableOverridesMixin",
+		"CreeperAccessor",
 		"EntityMixin",
 		"LightningBoltMixin",
 		"LivingEntityMixin",

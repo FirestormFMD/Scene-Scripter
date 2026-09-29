@@ -316,6 +316,9 @@ public final class EditorScreen extends Screen {
 				EditorState.sceneBrowserOpen = false;
 			});
 			ui.button(x + w - 50, rowY, 42, 12, "Delete", false, () -> ClientNet.sceneCommand(Payloads.SceneCommand.DELETE, name, 0));
+			if (current) {
+				ui.button(x + w - 146, rowY, 48, 12, "Export", false, () -> ClientNet.sceneCommand(Payloads.SceneCommand.EXPORT, "", 0));
+			}
 			rowY += 14;
 		}
 		int by = y + h - 30;
@@ -470,6 +473,14 @@ public final class EditorScreen extends Screen {
 				}
 				return true;
 			}
+			if (ctrl && key == GLFW.GLFW_KEY_C) {
+				copyKeys();
+				return true;
+			}
+			if (ctrl && key == GLFW.GLFW_KEY_V) {
+				pasteKeys();
+				return true;
+			}
 			if (ctrl && key == GLFW.GLFW_KEY_D) {
 				ClientScene.object(EditorState.selectedObject).filter(o -> !Scene.isTracks(o)).ifPresent(o -> {
 					EditActions.duplicate(scene, o);
@@ -520,15 +531,62 @@ public final class EditorScreen extends Screen {
 
 	private void deleteSelection(Scene scene) {
 		SceneObject o = ClientScene.object(EditorState.selectedObject).orElse(null);
-		if (o != null && EditorState.selectedChannel != null && EditorState.selectedKeyTick >= 0) {
+		if (o != null && !EditorState.selectedKeys.isEmpty()) {
+			var keys = java.util.List.copyOf(EditorState.selectedKeys);
+			EditActions.change(o, "Delete " + keys.size() + " keys", c -> keys.forEach(k ->
+					c.channel(k.channel()).ifPresent(ch -> ch.remove(k.tick()))));
+			EditorState.selectedKeys.clear();
+			EditorState.selectedKeyTick = -1;
+		} else if (o != null && EditorState.selectedChannel != null && EditorState.selectedKeyTick >= 0) {
 			EditActions.deleteKey(o, EditorState.selectedChannel, EditorState.selectedKeyTick);
 			EditorState.selectedKeyTick = -1;
-		} else if (o != null) {
+		} else if (o != null && !Scene.isTracks(o)) {
 			EditActions.delete(o);
 		} else if (EditorState.selectedPath != null) {
 			ClientNet.edit(new io.github.firestormfmd.scenescripter.core.edit.Edits.RemovePath(EditorState.selectedPath));
 			EditorState.selectPath(null);
 		}
+	}
+
+	/** Copies the selected keyframes, remembering their channels and spacing. */
+	private void copyKeys() {
+		SceneObject o = ClientScene.object(EditorState.selectedObject).orElse(null);
+		if (o == null || EditorState.selectedKeys.isEmpty()) {
+			status("Select keyframes on the timeline first (drag a box around them)");
+			return;
+		}
+		int first = EditorState.selectedKeys.stream().mapToInt(EditorState.KeyRef::tick).min().orElse(0);
+		EditorState.clipboard.clear();
+		for (var ref : EditorState.selectedKeys) {
+			o.channel(ref.channel()).ifPresent(ch -> ch.keyAt(ref.tick()).ifPresent(k -> EditorState.clipboard.add(
+					new EditorState.CopiedKey(ref.channel(), ch.type(), ch.defaultValue(), ref.tick() - first, k))));
+		}
+		status("Copied " + EditorState.clipboard.size() + " keys");
+	}
+
+	/** Pastes copied keyframes onto the selected object, starting at the playhead. */
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	private void pasteKeys() {
+		SceneObject o = ClientScene.object(EditorState.selectedObject).orElse(null);
+		if (o == null || EditorState.clipboard.isEmpty()) {
+			return;
+		}
+		int at = ClientScene.tick();
+		var copied = java.util.List.copyOf(EditorState.clipboard);
+		EditActions.change(o, "Paste " + copied.size() + " keys", c -> {
+			for (var k : copied) {
+				io.github.firestormfmd.scenescripter.core.anim.Channel ch = c.channel(k.channel()).orElse(null);
+				if (ch == null) {
+					ch = new io.github.firestormfmd.scenescripter.core.anim.Channel(k.type(), k.defaultValue());
+					c.putChannel(k.channel(), ch);
+				}
+				if (ch.type() == k.type()) {
+					ch.putUnchecked(new io.github.firestormfmd.scenescripter.core.anim.Keyframe<>(at + k.offset(),
+							k.key().value(), k.key().interpolation(), k.key().handles(), null));
+				}
+			}
+		});
+		status("Pasted " + copied.size() + " keys at tick " + at);
 	}
 
 	/** Starts flying the camera while the right mouse button is held in the viewport. */

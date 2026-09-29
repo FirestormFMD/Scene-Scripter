@@ -1,6 +1,7 @@
 package io.github.firestormfmd.scenescripter.client.editor;
 
 import io.github.firestormfmd.scenescripter.client.ClientScene;
+import io.github.firestormfmd.scenescripter.client.net.ClientNet;
 import io.github.firestormfmd.scenescripter.core.scene.MotionPath;
 import io.github.firestormfmd.scenescripter.core.scene.Scene;
 import io.github.firestormfmd.scenescripter.core.scene.SceneObject;
@@ -11,6 +12,8 @@ import io.github.firestormfmd.scenescripter.core.scene.SceneObject;
 final class Outliner {
 	private final EditorScreen screen;
 	private int scroll;
+	/** The hidden list last sent to the server; null forces a resend, such as after reopening the editor. */
+	private java.util.List<String> sentView;
 
 	Outliner(EditorScreen screen) {
 		this.screen = screen;
@@ -47,12 +50,28 @@ final class Outliner {
 			if (selected) {
 				ui.fill(x + 2, rowY - 1, w - 4, Ui.ROW_HEIGHT, Ui.ACCENT_DIM);
 			}
-			String label = ui.fit(o.name(), w - 60);
-			ui.text(label, x + 6, rowY + 1, exists ? Ui.TEXT : Ui.TEXT_DIM);
-			String type = EditActions.prettyName(o.entityType());
-			ui.text(ui.fit(type, 50), x + w - 54, rowY + 1, Ui.TEXT_DIM);
+			boolean hiddenHere = EditorState.hidden.contains(o.id());
+			String label = ui.fit(o.name(), w - 48);
+			ui.text(label, x + 6, rowY + 1, exists && !hiddenHere ? Ui.TEXT : Ui.TEXT_DIM);
 			ui.area(x + 2, rowY - 1, w - 4, Ui.ROW_HEIGHT, (b, mx, my) -> EditorState.selectObject(o.id()));
+			toggle(ui, x + w - 38, rowY, "V", !hiddenHere, "hide", () -> {
+				if (!EditorState.hidden.remove(o.id())) {
+					EditorState.hidden.add(o.id());
+				}
+			});
+			toggle(ui, x + w - 26, rowY, "L", EditorState.locked.contains(o.id()), "lock", () -> {
+				if (!EditorState.locked.remove(o.id())) {
+					EditorState.locked.add(o.id());
+				}
+			});
+			toggle(ui, x + w - 14, rowY, "S", o.id().equals(EditorState.solo), "solo",
+					() -> EditorState.solo = o.id().equals(EditorState.solo) ? null : o.id());
 			rowY += Ui.ROW_HEIGHT;
+		}
+		java.util.List<String> view = EditorState.effectiveHidden(scene);
+		if (!view.equals(sentView)) {
+			sentView = view;
+			ClientNet.editorView(view);
 		}
 		if (scene.objects().isEmpty()) {
 			ui.text("Nothing yet: + Add", x + 6, rowY + 1, Ui.TEXT_DIM);
@@ -76,5 +95,12 @@ final class Outliner {
 			ui.area(x + 2, pathY - 1, w - 4, Ui.ROW_HEIGHT, (b, mx, my) -> EditorState.selectPath(p.id()));
 			pathY += Ui.ROW_HEIGHT;
 		}
+	}
+
+	/** A tiny on/off button: visibility, lock or solo. */
+	private static void toggle(Ui ui, int x, int y, String label, boolean on, String what, Runnable flip) {
+		ui.fill(x, y, 10, 10, on ? Ui.ACCENT_DIM : 0x40000000);
+		ui.text(label, x + 2, y + 1, on ? Ui.TEXT : Ui.TEXT_DIM);
+		ui.area(x, y, 10, 10, (b, mx, my) -> flip.run());
 	}
 }

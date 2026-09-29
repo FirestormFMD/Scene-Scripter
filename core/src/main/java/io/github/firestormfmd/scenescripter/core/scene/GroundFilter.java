@@ -24,6 +24,15 @@ public record GroundFilter(String preset, List<String> include, List<String> exc
 	public static final GroundFilter ALL_SOLID =
 			new GroundFilter("all_solid", List.of(), List.of(), FluidMode.SWIM, 3, 12, true);
 
+	/** Natural terrain only: leaves, planks, wooden slabs and stairs, fences and walls don't count, so paths keep off roofs. */
+	public static final GroundFilter TERRAIN_ONLY = new GroundFilter("terrain_only", List.of(),
+			List.of("#minecraft:leaves", "#minecraft:planks", "#minecraft:wooden_slabs", "#minecraft:wooden_stairs",
+					"#minecraft:fences", "#minecraft:walls"),
+			FluidMode.SWIM, 3, 12, true);
+
+	/** The presets offered in the editor, in order. */
+	public static final List<GroundFilter> PRESETS = List.of(NATURAL_GROUND, ALL_SOLID, TERRAIN_ONLY);
+
 	public GroundFilter {
 		Objects.requireNonNull(preset, "preset");
 		include = List.copyOf(include);
@@ -32,5 +41,24 @@ public record GroundFilter(String preset, List<String> include, List<String> exc
 		if (searchUp < 0 || searchDown < 0) {
 			throw new IllegalArgumentException("Search distances cannot be negative");
 		}
+	}
+
+	/** The next preset after this one, for cycling through them in the editor. */
+	public GroundFilter nextPreset() {
+		for (int i = 0; i < PRESETS.size(); i++) {
+			if (PRESETS.get(i).preset().equals(preset)) {
+				return PRESETS.get((i + 1) % PRESETS.size());
+			}
+		}
+		return PRESETS.getFirst();
+	}
+
+	/** This filter with its own include and exclude lists, marked as custom. */
+	public GroundFilter withLists(List<String> newInclude, List<String> newExclude) {
+		return new GroundFilter("custom", newInclude, newExclude, fluids, searchUp, searchDown, headroomCheck);
+	}
+
+	public GroundFilter withFluids(FluidMode mode) {
+		return new GroundFilter(preset, include, exclude, mode, searchUp, searchDown, headroomCheck);
 	}
 }

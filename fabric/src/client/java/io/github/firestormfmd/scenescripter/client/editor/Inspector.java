@@ -126,6 +126,26 @@ final class Inspector {
 			String skin = o.appearance().getOrDefault("skin", "");
 			row("Skin", skin.isEmpty() ? "(default)" : skin, false,
 					() -> editAt(skinY, skin, v -> EditActions.change(o, "Change skin", c -> c.appearance().put("skin", v.trim()))), null);
+			int textureY = rowY;
+			String texture = o.appearance().getOrDefault("skin_texture", "");
+			row("Skin file", texture.isEmpty() ? "none" : texture, false, () -> editAt(textureY, texture.isEmpty()
+					? "myskins:entity/knight" : texture, v -> EditActions.change(o, "Change skin file", c -> {
+						if (v.isBlank()) {
+							c.appearance().remove("skin_texture");
+						} else {
+							c.appearance().put("skin_texture", v.trim());
+						}
+					})), null);
+			String model = o.appearance().getOrDefault("model", "");
+			row("Arms", model.isEmpty() ? "from skin" : model, false, () -> EditActions.change(o, "Change arm model", c -> {
+				if (model.isEmpty()) {
+					c.appearance().put("model", "slim");
+				} else if (model.equals("slim")) {
+					c.appearance().put("model", "wide");
+				} else {
+					c.appearance().remove("model");
+				}
+			}), null);
 		}
 		int tick = ClientScene.tick();
 		String life = (o.spawnTick() == 0 && o.despawnTick() < 0) ? "always"
@@ -503,6 +523,23 @@ final class Inspector {
 	// ---- Scene-wide rules ----
 
 	private void sceneRules(Scene scene) {
+		heading("Ground for paths");
+		var settings0 = scene.settings();
+		var filter = settings0.groundFilter();
+		row("Preset", filter.preset(), false, () -> setGround(scene, filter.nextPreset()), null);
+		int excludeY = rowY;
+		String excludes = String.join(", ", filter.exclude());
+		row("Not ground", excludes.isEmpty() ? "-" : excludes, false, () -> editAt(excludeY, excludes,
+				v -> setGround(scene, filter.withLists(filter.include(), splitList(v)))), null);
+		int includeY = rowY;
+		String includes = String.join(", ", filter.include());
+		row("Also ground", includes.isEmpty() ? "-" : includes, false, () -> editAt(includeY, includes,
+				v -> setGround(scene, filter.withLists(splitList(v), filter.exclude()))), null);
+		var fluids = io.github.firestormfmd.scenescripter.core.scene.FluidMode.values();
+		row("Water", filter.fluids().id(), false, () -> setGround(scene,
+				filter.withFluids(fluids[(filter.fluids().ordinal() + 1) % fluids.length])), null);
+		label("Blocks by ID, tags with #, separated by commas.");
+
 		heading("Interaction rules");
 		var settings = scene.settings();
 		var r = settings.rules();
@@ -537,6 +574,21 @@ final class Inspector {
 			io.github.firestormfmd.scenescripter.core.scene.ExplosionRules ex) {
 		return new io.github.firestormfmd.scenescripter.core.scene.InteractionRules(r.attack(), r.knockback(), r.crits(),
 				r.hitCooldown(), r.autoDeath(), r.friendlyFire(), ex);
+	}
+
+	private static List<String> splitList(String v) {
+		List<String> out = new java.util.ArrayList<>();
+		for (String part : v.split(",")) {
+			if (!part.isBlank()) {
+				out.add(part.trim());
+			}
+		}
+		return out;
+	}
+
+	private static void setGround(Scene scene, io.github.firestormfmd.scenescripter.core.scene.GroundFilter filter) {
+		var h = Edits.SetSceneHeader.of(scene);
+		ClientNet.edit(new Edits.SetSceneHeader(h.name(), h.length(), h.origin(), h.bounds(), h.settings().withGroundFilter(filter)));
 	}
 
 	private static void setRules(Scene scene, io.github.firestormfmd.scenescripter.core.scene.InteractionRules rules) {

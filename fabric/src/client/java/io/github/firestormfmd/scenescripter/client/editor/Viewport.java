@@ -50,7 +50,8 @@ final class Viewport {
 		lastMouseX = ui.mouseX();
 		lastMouseY = ui.mouseY();
 		String hint = switch (EditorState.tool) {
-			case SELECT -> EditorState.selectedObject != null ? "Drag the actor to move it; I keys its position" : "Click an actor to select it";
+			case SELECT -> (EditorState.selectedObject != null ? "Drag the actor to move it; I keys its position" : "Click an actor to select it")
+					+ (EditorState.snap == EditorState.Snap.OFF ? "  (G: snap)" : "  (snap: " + EditorState.snap.name().toLowerCase(java.util.Locale.ROOT) + ")");
 			case PLACE -> "Click the ground to place: " + EditActions.prettyName(EditorState.placeType);
 			case PATH -> (EditorState.pathDraftAir ? "Air path" : "Ground path") + ": " + EditorState.pathDraft.size()
 					+ " points. Click to add, Enter to finish, Tab switches ground/air, Esc cancels";
@@ -83,7 +84,7 @@ final class Viewport {
 		Picking.Ray ray = Picking.ray(x, y, screen.width, screen.height);
 		switch (EditorState.tool) {
 			case SELECT -> {
-				String picked = Picking.pickActor(ray).orElse(null);
+				String picked = Picking.pickActor(ray).filter(id -> !EditorState.locked.contains(id)).orElse(null);
 				if (picked != null) {
 					boolean already = picked.equals(EditorState.selectedObject);
 					EditorState.selectObject(picked);
@@ -100,14 +101,14 @@ final class Viewport {
 				EditorState.selectPath(null);
 			}
 			case PLACE -> {
-				Vec3 at = screen.groundUnderMouse(x, y);
+				Vec3 at = snapped(screen.groundUnderMouse(x, y));
 				if (at != null) {
 					EditActions.addObject(EditorState.placeType, at);
 					screen.status("Placed " + EditActions.prettyName(EditorState.placeType));
 				}
 			}
 			case PATH -> {
-				Vec3 at = screen.groundUnderMouse(x, y);
+				Vec3 at = snapped(screen.groundUnderMouse(x, y));
 				if (at != null) {
 					EditorState.pathDraft.add(EditorState.pathDraftAir ? at.add(0, AIR_HEIGHT, 0) : at);
 				}
@@ -115,6 +116,10 @@ final class Viewport {
 			case BLOCKS -> blockClick(ray);
 		}
 		return true;
+	}
+
+	private static Vec3 snapped(Vec3 at) {
+		return at == null ? null : EditorState.snap.apply(at);
 	}
 
 	/** Adds a block event on the selected object for the block under the mouse. */
@@ -181,7 +186,7 @@ final class Viewport {
 			return false;
 		}
 		if (draggingActor || EditorState.dragPoint >= 0) {
-			Vec3 at = screen.groundUnderMouse(x, y);
+			Vec3 at = snapped(screen.groundUnderMouse(x, y));
 			if (at != null) {
 				EditorState.dragPreview = at;
 			}
@@ -254,6 +259,15 @@ final class Viewport {
 				default -> {
 				}
 			}
+		}
+		if (key == GLFW.GLFW_KEY_G) {
+			EditorState.snap = EditorState.snap.next();
+			screen.status("Snap: " + switch (EditorState.snap) {
+				case OFF -> "off";
+				case HALF -> "half blocks";
+				case BLOCK -> "block centres";
+			});
+			return true;
 		}
 		if (key == GLFW.GLFW_KEY_R) {
 			SceneObject o = ClientScene.object(EditorState.selectedObject).orElse(null);

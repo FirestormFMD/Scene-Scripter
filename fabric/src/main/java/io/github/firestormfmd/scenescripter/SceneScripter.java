@@ -109,6 +109,8 @@ public class SceneScripter implements ModInitializer {
 				SceneManager.get().ifPresent(m -> m.onPlayback(payload)));
 		ServerPlayNetworking.registerGlobalReceiver(Payloads.SceneCommand.TYPE, (payload, context) ->
 				SceneManager.get().ifPresent(m -> m.onSceneCommand(context.player(), payload)));
+		ServerPlayNetworking.registerGlobalReceiver(Payloads.EditorView.TYPE, (payload, context) ->
+				SceneManager.get().ifPresent(m -> m.onEditorView(context.player(), payload.hidden())));
 		ServerPlayNetworking.registerGlobalReceiver(Payloads.Capture.TYPE, (payload, context) ->
 				SceneManager.get().ifPresent(m -> m.onCapture(context.player(), payload)));
 	}

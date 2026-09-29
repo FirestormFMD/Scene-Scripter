@@ -121,14 +121,52 @@ public final class ClientScene {
 		evaluator().ifPresent(eval -> {
 			for (SceneObject o : scene.objects()) {
 				Entity e = actor(o.id()).orElse(null);
+				int tick = state.tick();
 				if (e instanceof net.minecraft.world.entity.LivingEntity living) {
-					var s = eval.evaluate(o, state.tick());
+					var s = eval.evaluate(o, tick);
 					if (s.dead() && s.ticksDead() >= 0) {
 						living.deathTime = Math.min(s.ticksDead(), 19);
 					}
+					int sinceHurt = ticksSince(o, tick, java.util.Set.of("hurt"));
+					if (sinceHurt >= 0 && sinceHurt < 10) {
+						living.hurtDuration = 10;
+						living.hurtTime = 10 - sinceHurt;
+					}
+					int sinceSwing = ticksSince(o, tick, java.util.Set.of("attack", "swing", "place_block", "break_block", "use_block"));
+					if (sinceSwing >= 0 && sinceSwing < 6) {
+						living.swinging = true;
+						living.swingTime = sinceSwing;
+					}
+				}
+				if (e instanceof net.minecraft.world.entity.monster.Creeper creeper) {
+					int swell = o.channel(io.github.firestormfmd.scenescripter.core.scene.BuiltInChannels.IGNITED.name())
+							.map(ch -> {
+								int since = -1;
+								for (var k : ch.keys()) {
+									if (k.tick() <= tick) {
+										since = Boolean.TRUE.equals(k.value()) ? tick - k.tick() : -1;
+									}
+								}
+								return since;
+							}).orElse(-1);
+					var access = (io.github.firestormfmd.scenescripter.mixin.CreeperAccessor) creeper;
+					int value = swell < 0 ? 0 : Math.min(30, swell);
+					access.scenescripter$setSwell(value);
+					access.scenescripter$setOldSwell(value);
 				}
 			}
 		});
+	}
+
+	/** Ticks since the object's last event of these types at or before {@code tick}, or -1. */
+	private static int ticksSince(SceneObject o, int tick, java.util.Set<String> types) {
+		int best = -1;
+		for (var e : o.events()) {
+			if (types.contains(e.type()) && e.tick() <= tick) {
+				best = tick - e.tick();
+			}
+		}
+		return best;
 	}
 
 	/** Whether this player is performing an object right now. */
