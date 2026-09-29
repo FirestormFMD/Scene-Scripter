@@ -1,10 +1,7 @@
-# batch 19: what changed in 26.3 for the port
+# batch 20: more of 26.3 for the port
 minecraft 26.3 0.161.0+26.3
-find EnderMan*.java
-find SwingAnimation*.java
-find *Swing*Packet*.java
-find ServerClockManager.java
-grep world/entity/Entity.java nvulnerable
-grep world/entity/LivingEntity.java (void swing\(|SwingAnimation)
-grep server/network/ServerGamePacketListenerImpl.java (handleAnimate|[Ss]wing)
-grep server/level/ServerLevel.java clockManager
+find Ender*.java
+lines server/network/ServerGamePacketListenerImpl.java 1732 1750
+outline world/clock/ServerClockManager.java
+grep world/item/component/SwingAnimation.java (public|DEFAULT)
+grep network/protocol/game/GamePacketTypes.java SWING
