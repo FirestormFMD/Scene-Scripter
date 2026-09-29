@@ -119,13 +119,27 @@ public class ReplayWithoutSceneScripter implements FabricClientGameTest {
 		if (o == null || depth > 10 || seen.size() > 20_000 || !seen.add(o)) {
 			return;
 		}
-		if (o instanceof java.util.Map<?, ?> map) {
-			map.keySet().forEach(k -> walk(k, depth + 1, seen, clickables, texts));
-			map.values().forEach(v -> walk(v, depth + 1, seen, clickables, texts));
+		// Only plain collections are followed: other iterables (such as service loaders) do work when iterated.
+		try {
+			if (o instanceof java.util.Map<?, ?> map) {
+				for (Object k : new java.util.ArrayList<>(map.keySet())) {
+					walk(k, depth + 1, seen, clickables, texts);
+				}
+				for (Object v : new java.util.ArrayList<>(map.values())) {
+					walk(v, depth + 1, seen, clickables, texts);
+				}
+				return;
+			}
+			if (o instanceof java.util.Collection<?> items) {
+				for (Object i : new java.util.ArrayList<>(items)) {
+					walk(i, depth + 1, seen, clickables, texts);
+				}
+				return;
+			}
+		} catch (RuntimeException | Error e) {
 			return;
 		}
-		if (o instanceof Iterable<?> items) {
-			items.forEach(i -> walk(i, depth + 1, seen, clickables, texts));
+		if (o instanceof Iterable<?>) {
 			return;
 		}
 		if (o instanceof Object[] array) {
@@ -154,7 +168,7 @@ public class ReplayWithoutSceneScripter implements FabricClientGameTest {
 				try {
 					f.setAccessible(true);
 					walk(f.get(o), depth + 1, seen, clickables, texts);
-				} catch (RuntimeException | IllegalAccessException ignored) {
+				} catch (RuntimeException | Error | IllegalAccessException ignored) {
 					// a field the module system keeps closed; its contents aren't Replay Mod's
 				}
 			}
