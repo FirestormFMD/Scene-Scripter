@@ -57,17 +57,28 @@ Click **Place** (or **+ Add** in the outliner), choose a type from the palette, 
 
 Every object has:
 
-- **A lifetime:** "Spawn here" and "Leave here" set when it appears and disappears.
+- **A lifetime:** "Spawn here" and "Leave here" set when it appears and disappears. **Appears** and **Leaves** choose whether that happens quietly or in a puff of smoke.
 - **Channels:** position, facing, head turn and tilt, look-at (an object or an `x y z` point), scale, pose, sneaking, sprinting, on fire, glowing, invisible, dead, health, name tag, equipment, item use (bow draws, eating, shields), and idle sounds.
 - **Mob-specific channels** for types that have them, such as a zombie's raised arms (aggressive), a sheep's wool, a wolf sitting, or what an enderman carries.
+- **Look switches** for some types: a charged creeper (which also blasts harder), an end crystal's bedrock base, an arrow's critical trail.
+- **Variables** of your own: under **Variables**, **Add** takes a name, a type and a starting value, such as `lives int 3`. Types are `int`, `float` and `bool`. Key them like any other channel and use them in event conditions (see below).
 
 Health is not real health. It is a number that attacks subtract from and that can trigger a death at 0 when auto death is on.
 
 ## Motion paths
 
-Choose **Path**, click along the ground to add points, and press **Enter**. **Tab** switches between a ground path, which follows the terrain, and an air path, which flies. Select an object and use **Walk** in its inspector to put it on the last selected path at the playhead.
+Choose **Path**, click along the ground to add points, and press **Enter**. Hold the mouse button and drag to sketch a stretch freehand instead; when you let go it is thinned down to the few points needed to follow your stroke. **Tab** switches between a ground path, which follows the terrain, and an air path, which flies. Select an object and use **Walk** in its inspector to put it on the last selected path at the playhead.
 
 Ground paths snap to real blocks. What counts as ground is set with nothing selected, under **Ground for paths**: a preset (natural ground, all solid blocks, or terrain only), blocks or tags that never count, blocks that also count, and whether paths swim, walk along the bottom of water, or treat it as a wall. Objects step up single blocks, jump up higher ledges with a real jump arc, and fall off edges. Select a path to change its gait (walk, sprint, sneak), speed, speed keys, jump height, and wait, jump and gait markers. Problems such as a wall that is too high show in red in the world.
+
+To edit a path, select it and click one of its points (the selected point is drawn larger):
+
+- Drag a point to move it.
+- **N** inserts a point halfway to the next one.
+- **Delete** removes the point (a path keeps at least two).
+- **H** gives the point Bézier handles, drawn in white. Drag either handle to shape the curve; the other mirrors it so the path stays smooth. **H** again returns the point to the automatic curve.
+
+A path that starts after an explosion follows the crater the explosion left.
 
 The selected object shows faint ghosts of where it will be a little before and after the playhead.
 
@@ -81,10 +92,13 @@ The inspector's event buttons add an event at the playhead:
 - **explode** sets off TNT, creepers, end crystals and fireballs. **ignite** makes a creeper swell and explode after its fuse.
 - **swing** plays an arm swing.
 - **Riding** mounts the nearest other object, or dismounts.
+- **Mob events** appear as extra buttons for the types that have them: an iron golem offering a flower, a sheep eating grass, a wolf shaking off water, a warden's sonic charge, a ravager stunned, hearts, a villager's moods, and more. Iron golems, ravagers, hoglins and wardens use their own attack animation for attack events. The list lives in `data/scenescripter/mob_events.json` inside the mod.
+
+Each event you add is listed in the inspector with a condition button and an **x** to remove it. A condition makes the event happen only when it holds at that tick, for example `lives <= 0` or `scene.act == 2`, where `scene.` reads a variable on the scene track. The operators are `<`, `<=`, `==`, `!=`, `>=` and `>`, and `true` or `false` compare switches. Built-in channels such as `health` work too. A condition that can't be read, such as a misspelt name, lets the event happen, so a typo never hides an event.
 
 Results the solver works out are marked "auto" and in purple. Editing one by hand turns it into your own key, and the solver leaves it alone.
 
-**Rules** decide how events resolve: with nothing selected, the inspector shows the scene's rules (attack mode, friendly fire, auto death, and whether blasts break blocks, hurt players or start fires). Each object can override the attack mode and friendly fire, and objects in the same **group** don't hurt each other unless friendly fire is on.
+**Rules** decide how events resolve: with nothing selected, the inspector shows the scene's rules (attack mode, friendly fire, auto death, and whether blasts break blocks, hurt players or start fires). Each object can override the attack mode and friendly fire, and objects in the same **group** don't hurt each other unless friendly fire is on. A group can also be moved (**Move group**, by `x y z` blocks) or retimed (**Retime group**, by ticks) in one step.
 
 ## TNT and explosions
 
@@ -106,7 +120,7 @@ To record only part of a scene, set a loop range on the timeline first; capture 
 
 ## Crowds
 
-Select an object and use **Crowd** in the inspector: choose a formation (line, grid, circle or scatter), the number of extra members and the spacing, and press **Make crowd**. The members copy everything the original does. On paths they walk side by side, rear ranks set off a little later, and each gets a small random delay so the crowd doesn't move like one body.
+Select an object and use **Crowd** in the inspector: choose a formation (line, grid, circle or scatter), the number of extra members and the spacing, and press **Make crowd**. The members copy everything the original does. On paths they walk side by side, rear ranks set off a little later, and each gets a small random delay and walks a little faster or slower, so the crowd doesn't move like one body.
 
 ## The scene track
 
@@ -116,6 +130,7 @@ The first row of the outliner is the scene track. It holds:
 - **Sound** events: a sound ID such as `entity.lightning_bolt.thunder`, heard everywhere.
 - **Command** events: a command, optionally followed by `|` and an undo command, such as `setblock 10 64 10 minecraft:gold_block | setblock 10 64 10 minecraft:air`. The undo runs when you rewind past it.
 - **Markers:** named points on the timeline.
+- **Variables** for the whole scene, read in event conditions as `scene.<name>`.
 
 ## Recording
 

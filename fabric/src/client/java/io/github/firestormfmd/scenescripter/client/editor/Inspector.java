@@ -27,6 +27,12 @@ import io.github.firestormfmd.scenescripter.core.scene.SceneObject;
 final class Inspector {
 	private static final List<String> POSES = List.of("standing", "crouching", "sleeping", "swimming", "fall_flying",
 			"sitting", "spin_attack");
+	/** Poses only some mobs animate, such as a warden digging back into the ground. */
+	private static final java.util.Map<String, List<String>> MOB_POSES = java.util.Map.of(
+			"minecraft:warden", List.of("roaring", "sniffing", "emerging", "digging"),
+			"minecraft:frog", List.of("croaking", "using_tongue", "long_jumping"),
+			"minecraft:goat", List.of("long_jumping"),
+			"minecraft:breeze", List.of("sliding", "shooting", "inhaling"));
 	private static final List<ChannelSpec<String>> EQUIPMENT = List.of(BuiltInChannels.MAINHAND, BuiltInChannels.OFFHAND,
 			BuiltInChannels.HEAD, BuiltInChannels.CHEST, BuiltInChannels.LEGS, BuiltInChannels.FEET);
 
@@ -226,9 +232,11 @@ final class Inspector {
 
 		heading("Pose and state");
 		String pose = EditActions.valueNow(o, BuiltInChannels.POSE);
+		List<String> poses = new java.util.ArrayList<>(POSES);
+		poses.addAll(MOB_POSES.getOrDefault(o.entityType(), List.of()));
 		row("Pose", pose, EditActions.hasKeyNow(o, "pose"), () -> {
-			int i = POSES.indexOf(pose);
-			EditActions.key(o, BuiltInChannels.POSE, POSES.get((i + 1) % POSES.size()));
+			int i = poses.indexOf(pose);
+			EditActions.key(o, BuiltInChannels.POSE, poses.get((i + 1) % poses.size()));
 		}, () -> EditActions.key(o, BuiltInChannels.POSE, pose));
 		toggle(o, BuiltInChannels.SNEAKING, "Sneaking");
 		toggle(o, BuiltInChannels.SPRINTING, "Sprinting");
@@ -505,10 +513,10 @@ final class Inspector {
 		if (spec.type() == io.github.firestormfmd.scenescripter.core.anim.ValueType.BOOL) {
 			boolean b = Boolean.TRUE.equals(value);
 			row(cap.label(), b ? "yes" : "no", keyed, () -> keyCapability(o, spec, !b), () -> keyCapability(o, spec, b));
-		} else if (spec.name().equals("wool_color")) {
-			var colors = io.github.firestormfmd.scenescripter.actor.Capabilities.COLORS;
+		} else if (!io.github.firestormfmd.scenescripter.actor.Capabilities.options(spec.name()).isEmpty()) {
+			var options = io.github.firestormfmd.scenescripter.actor.Capabilities.options(spec.name());
 			String c = String.valueOf(value);
-			row(cap.label(), c, keyed, () -> keyCapability(o, spec, colors.get((colors.indexOf(c) + 1) % colors.size())),
+			row(cap.label(), c, keyed, () -> keyCapability(o, spec, options.get((options.indexOf(c) + 1) % options.size())),
 					() -> keyCapability(o, spec, c));
 		} else {
 			String t = String.valueOf(value);

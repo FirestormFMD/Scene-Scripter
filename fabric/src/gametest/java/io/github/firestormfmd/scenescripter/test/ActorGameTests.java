@@ -3,14 +3,24 @@ package io.github.firestormfmd.scenescripter.test;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.animal.equine.AbstractHorse;
+import net.minecraft.world.entity.animal.wolf.Wolf;
 import net.minecraft.world.entity.decoration.Mannequin;
+import net.minecraft.world.entity.monster.Creeper;
+import net.minecraft.world.entity.monster.EnderMan;
+import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.entity.npc.villager.VillagerProfession;
+import net.minecraft.world.entity.npc.villager.VillagerType;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.gametest.framework.GameTestHelper;
 
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 
 import io.github.firestormfmd.scenescripter.actor.Actors;
+import io.github.firestormfmd.scenescripter.core.anim.Channel;
 import io.github.firestormfmd.scenescripter.core.anim.Interpolation;
 import io.github.firestormfmd.scenescripter.core.anim.Keyframe;
+import io.github.firestormfmd.scenescripter.core.anim.ValueType;
 import io.github.firestormfmd.scenescripter.core.math.Vec3;
 import io.github.firestormfmd.scenescripter.core.scene.BuiltInChannels;
 import io.github.firestormfmd.scenescripter.core.scene.Scene;
@@ -77,6 +87,38 @@ public class ActorGameTests {
 		Entity revived = session.actors().actor("o1").orElseThrow(() -> helper.assertionException("zombie was not revived"));
 		helper.assertTrue(revived != dying, "revival uses a fresh entity");
 		helper.assertTrue(revived instanceof LivingEntity l && l.getHealth() > 0, "revived zombie is alive");
+		session.close();
+		helper.succeed();
+	}
+
+	@GameTest(maxTicks = 20)
+	public void mobCapabilitiesReachActors(GameTestHelper helper) {
+		Scene scene = new Scene("t", 200);
+		SceneObject creeper = TestScenes.object(scene, "creeper", "minecraft:creeper", TestScenes.at(helper, 1, 2, 1));
+		creeper.appearance().put("powered", "true");
+		SceneObject wolf = TestScenes.object(scene, "wolf", "minecraft:wolf", TestScenes.at(helper, 3, 2, 1));
+		wolf.putChannel("tame", new Channel<>(ValueType.BOOL, true));
+		wolf.putChannel("angry", new Channel<>(ValueType.BOOL, true));
+		wolf.putChannel("collar_color", new Channel<>(ValueType.ENUM, "blue"));
+		SceneObject villager = TestScenes.object(scene, "villager", "minecraft:villager", TestScenes.at(helper, 5, 2, 1));
+		villager.putChannel("profession", new Channel<>(ValueType.ENUM, "librarian"));
+		villager.putChannel("villager_type", new Channel<>(ValueType.ENUM, "desert"));
+		SceneObject horse = TestScenes.object(scene, "horse", "minecraft:horse", TestScenes.at(helper, 1, 2, 4));
+		horse.putChannel("rearing", new Channel<>(ValueType.BOOL, true));
+		SceneObject enderman = TestScenes.object(scene, "enderman", "minecraft:enderman", TestScenes.at(helper, 4, 2, 4));
+		enderman.putChannel("screaming", new Channel<>(ValueType.BOOL, true));
+		SceneSession session = TestScenes.session(helper, scene);
+		session.tick();
+		helper.assertTrue(session.actors().actor("creeper").orElseThrow() instanceof Creeper c && c.isPowered(), "creeper is charged");
+		Wolf w = (Wolf) session.actors().actor("wolf").orElseThrow();
+		helper.assertTrue(w.isTame(), "wolf is tame");
+		helper.assertTrue(w.isAngry(), "wolf is angry");
+		helper.assertValueEqual(w.getCollarColor(), DyeColor.BLUE, "collar color");
+		Villager v = (Villager) session.actors().actor("villager").orElseThrow();
+		helper.assertTrue(v.getVillagerData().profession().is(VillagerProfession.LIBRARIAN), "villager is a librarian");
+		helper.assertTrue(v.getVillagerData().type().is(VillagerType.DESERT), "villager is from the desert");
+		helper.assertTrue(((AbstractHorse) session.actors().actor("horse").orElseThrow()).isStanding(), "horse rears");
+		helper.assertTrue(((EnderMan) session.actors().actor("enderman").orElseThrow()).isCreepy(), "enderman screams");
 		session.close();
 		helper.succeed();
 	}

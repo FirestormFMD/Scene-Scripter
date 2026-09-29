@@ -7,6 +7,7 @@
 		"ChunkMapMixin",
 		"CollidableOverridesMixin",
 		"CreeperAccessor",
+		"EnderManAccessor",
 		"EntityMixin",
 		"LightningBoltMixin",
 		"LivingEntityMixin",
@@ -15,7 +16,8 @@
 		"ProjectileHitMixin",
 		"PushableOverridesMixin",
 		"ServerGamePacketListenerImplMixin",
-		"ServerLevelMixin"
+		"ServerLevelMixin",
+		"WolfAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1
